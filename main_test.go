@@ -207,6 +207,55 @@ func TestConvertBBCodeToMarkdown(t *testing.T) {
 	}
 }
 
+// TestMarkdownLinkPreservation tests that markdown links are preserved during BB-code cleanup
+func TestMarkdownLinkPreservation(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "Markdown link after BB-code",
+			input:    "[b]bold text[/b] [link](https://example.com)",
+			expected: "**bold text** [link](https://example.com)",
+		},
+		{
+			name:     "Multiple identical BB-codes with markdown link",
+			input:    "[b]first[/b] [b]second[/b] [link](url) [b]third[/b]",
+			expected: "**first** **second** [link](url) **third**",
+		},
+		{
+			name:     "Unknown BB-code with markdown link",
+			input:    "[unknown]text[/unknown] [link](url)",
+			expected: "text [link](url)",
+		},
+		{
+			name:     "Mixed BB-codes and markdown links",
+			input:    "[i]italic[/i] [link1](url1) [b]bold[/b] [link2](url2) [unknown]removed[/unknown]",
+			expected: "*italic* [link1](url1) **bold** [link2](url2) removed",
+		},
+		{
+			name:     "ATTACH tag preserved with markdown link",
+			input:    "[ATTACH=123] [link](url) [ATTACH=full]456[/ATTACH]",
+			expected: "[ATTACH=123] [link](url) [ATTACH=full]456[/ATTACH]",
+		},
+		{
+			name:     "Edge case: bracket in URL",
+			input:    "[b]text[/b] [link](https://example.com/page[1])",
+			expected: "**text** [link](https://example.com/page[1])",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := convertBBCodeToMarkdown(tt.input)
+			if result != tt.expected {
+				t.Errorf("\nInput:    %q\nExpected: %q\nGot:      %q", tt.input, tt.expected, result)
+			}
+		})
+	}
+}
+
 // TestFormatMessage tests the message formatting with metadata
 func TestFormatMessage(t *testing.T) {
 	username := "JohnDoe"

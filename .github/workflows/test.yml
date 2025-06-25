@@ -57,4 +57,4 @@ jobs:
         run: go build -v -o xenforo-to-gh-discussions .
 
       - name: Test binary execution
-        run: ./xenforo-to-gh-discussions --help || true
+        run: ./xenforo-to-gh-discussions --help
