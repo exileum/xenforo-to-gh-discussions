@@ -174,4 +174,5 @@ $RECYCLE.BIN/
 # End of https://www.toptal.com/developers/gitignore/api/macos,goland+all,go,windows
 
 # Binary
+build
 xenforo-to-gh-discussions

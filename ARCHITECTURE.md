@@ -213,6 +213,52 @@ func (s *FileSanitizer) ValidatePath(filePath, baseDir string) error {
 - **No hardcoded secrets**: All secrets externalized
 - **Validation**: Ensure credentials are properly formatted
 
+## Build System and Development Workflow
+
+### Makefile Integration
+
+The project includes a comprehensive Makefile that standardizes development tasks and integrates with CI/CD:
+
+```makefile
+# Core development commands
+make build         # Build the binary
+make test          # Run all tests
+make lint          # Code quality checks
+make deps          # Download dependencies
+
+# Development workflow
+make dev           # Development build with race detector
+make watch         # Auto-rebuild on file changes
+make clean         # Clean build artifacts
+
+# Testing variants
+make test-unit     # Unit tests only
+make test-integration  # Integration tests only
+make test-coverage     # Tests with coverage report
+
+# Release workflow
+make build-all     # Cross-platform builds
+make release       # Full release process
+make package       # Create release packages
+```
+
+### CI/CD Integration
+
+The GitHub Actions workflow leverages Makefile commands for consistency:
+
+```yaml
+- name: Run code quality checks
+  run: make lint
+
+- name: Run unit tests  
+  run: make test-unit
+
+- name: Build binary
+  run: make build
+```
+
+This ensures developers and CI use identical commands, reducing "works on my machine" issues.
+
 ## Testing Strategy
 
 ### 1. Unit Tests
