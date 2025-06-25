@@ -42,3 +42,18 @@ type PostsResponse struct {
 type AttachmentsResponse struct {
 	Attachments []Attachment `json:"attachments"`
 }
+
+type Node struct {
+	NodeID        int    `json:"node_id"`
+	Title         string `json:"title"`
+	NodeTypeID    string `json:"node_type_id"`
+	Description   string `json:"description,omitempty"`
+	ParentNodeID  int    `json:"parent_node_id"`
+	DisplayOrder  int    `json:"display_order"`
+	DisplayInList bool   `json:"display_in_list"`
+	ThreadCount   int    `json:"discussion_count,omitempty"` // For forum nodes
+}
+
+type NodesResponse struct {
+	Nodes []Node `json:"nodes"`
+}

@@ -1,16 +1,14 @@
-package unit
+package bbcode
 
 import (
 	"fmt"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/exileum/xenforo-to-gh-discussions/internal/bbcode"
 )
 
 func TestBBCodeConverter(t *testing.T) {
-	converter := bbcode.NewConverter()
+	converter := NewConverter()
 
 	tests := []struct {
 		name     string
@@ -65,7 +63,7 @@ func TestBBCodeConverter(t *testing.T) {
 }
 
 func TestMessageProcessor(t *testing.T) {
-	processor := bbcode.NewMessageProcessor()
+	processor := NewMessageProcessor()
 
 	content := "[b]Test message[/b]"
 	result := processor.ProcessContent(content)
@@ -77,7 +75,7 @@ func TestMessageProcessor(t *testing.T) {
 }
 
 func TestFormatMessage(t *testing.T) {
-	processor := bbcode.NewMessageProcessor()
+	processor := NewMessageProcessor()
 
 	tests := []struct {
 		name      string

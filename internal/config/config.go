@@ -21,17 +21,22 @@ type XenForoConfig struct {
 }
 
 type GitHubConfig struct {
-	Token      string
-	Repository string
-	Categories map[int]string
+	Token            string
+	Repository       string
+	Categories       map[int]string // Kept for backward compatibility
+	XenForoNodeID    int            // Single source category
+	GitHubCategoryID string         // Single target category
 }
 
 type MigrationConfig struct {
-	MaxRetries   int
-	DryRun       bool
-	Verbose      bool
-	ResumeFrom   int
-	ProgressFile string
+	MaxRetries               int
+	DryRun                   bool
+	Verbose                  bool
+	ResumeFrom               int
+	ProgressFile             string
+	UserMapping              map[int]int
+	AttachmentsDir           string        // Temporary, for interactive config
+	AttachmentRateLimitDelay time.Duration // Temporary, for interactive config
 }
 
 type FilesystemConfig struct {
@@ -48,15 +53,16 @@ func New() *Config {
 			NodeID:  getEnvIntOrDefault("XENFORO_NODE_ID", 1),
 		},
 		GitHub: GitHubConfig{
-			Token:      getEnvOrDefault("GITHUB_TOKEN", "your_github_token"),
-			Repository: getEnvOrDefault("GITHUB_REPO", "your_username/your_repo"),
-			Categories: map[int]string{
-				1: "DIC_kwDOxxxxxxxx", // Default mapping
-			},
+			Token:            getEnvOrDefault("GITHUB_TOKEN", "your_github_token"),
+			Repository:       getEnvOrDefault("GITHUB_REPO", "your_username/your_repo"),
+			Categories:       make(map[int]string),
+			XenForoNodeID:    getEnvIntOrDefault("XENFORO_NODE_ID", 1),
+			GitHubCategoryID: getEnvOrDefault("GITHUB_CATEGORY_ID", "DIC_kwDOxxxxxxxx"),
 		},
 		Migration: MigrationConfig{
 			MaxRetries:   getEnvIntOrDefault("MAX_RETRIES", 3),
 			ProgressFile: getEnvOrDefault("PROGRESS_FILE", "migration_progress.json"),
+			UserMapping:  make(map[int]int),
 		},
 		Filesystem: FilesystemConfig{
 			AttachmentsDir:           getEnvOrDefault("ATTACHMENTS_DIR", "./attachments"),

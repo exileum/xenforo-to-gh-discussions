@@ -1,10 +1,8 @@
-package unit
+package github
 
 import (
 	"strings"
 	"testing"
-
-	"github.com/exileum/xenforo-to-gh-discussions/internal/github"
 )
 
 func TestNewClient(t *testing.T) {
@@ -46,7 +44,7 @@ func TestNewClient(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client, err := github.NewClient(tt.token)
+			client, err := NewClient(tt.token)
 
 			if tt.shouldErr {
 				if err == nil {
@@ -73,7 +71,7 @@ func TestNewClient(t *testing.T) {
 }
 
 func TestClientRepositoryID(t *testing.T) {
-	client, err := github.NewClient("ghp_1234567890abcdef1234567890abcdef12345678")
+	client, err := NewClient("ghp_1234567890abcdef1234567890abcdef12345678")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}

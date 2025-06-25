@@ -1,11 +1,10 @@
-package unit
+package progress
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/exileum/xenforo-to-gh-discussions/internal/progress"
 	"github.com/exileum/xenforo-to-gh-discussions/internal/xenforo"
 )
 
@@ -20,7 +19,7 @@ func TestProgressTracker(t *testing.T) {
 	progressFile := filepath.Join(tempDir, "test_progress.json")
 
 	// Create new tracker
-	tracker, err := progress.NewTracker(progressFile, false)
+	tracker, err := NewTracker(progressFile, false)
 	if err != nil {
 		t.Fatalf("Failed to create tracker: %v", err)
 	}
@@ -54,7 +53,7 @@ func TestProgressTracker(t *testing.T) {
 	}
 
 	// Test persistence by creating new tracker
-	tracker2, err := progress.NewTracker(progressFile, false)
+	tracker2, err := NewTracker(progressFile, false)
 	if err != nil {
 		t.Fatalf("Failed to create second tracker: %v", err)
 	}
@@ -74,7 +73,7 @@ func TestFilterCompletedThreads(t *testing.T) {
 
 	progressFile := filepath.Join(tempDir, "test_progress.json")
 
-	tracker, err := progress.NewTracker(progressFile, false)
+	tracker, err := NewTracker(progressFile, false)
 	if err != nil {
 		t.Fatalf("Failed to create tracker: %v", err)
 	}
@@ -118,7 +117,7 @@ func TestMarkCompletedDuplicatePrevention(t *testing.T) {
 
 	progressFile := filepath.Join(tempDir, "test_progress.json")
 
-	tracker, err := progress.NewTracker(progressFile, false)
+	tracker, err := NewTracker(progressFile, false)
 	if err != nil {
 		t.Fatalf("Failed to create tracker: %v", err)
 	}
@@ -156,7 +155,7 @@ func TestMarkFailedDuplicatePrevention(t *testing.T) {
 
 	progressFile := filepath.Join(tempDir, "test_progress.json")
 
-	tracker, err := progress.NewTracker(progressFile, false)
+	tracker, err := NewTracker(progressFile, false)
 	if err != nil {
 		t.Fatalf("Failed to create tracker: %v", err)
 	}

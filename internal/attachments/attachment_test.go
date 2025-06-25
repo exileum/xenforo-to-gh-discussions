@@ -1,16 +1,15 @@
-package unit
+package attachments
 
 import (
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/exileum/xenforo-to-gh-discussions/internal/attachments"
 	"github.com/exileum/xenforo-to-gh-discussions/internal/xenforo"
 )
 
 func TestFileSanitizer(t *testing.T) {
-	sanitizer := attachments.NewFileSanitizer()
+	sanitizer := NewFileSanitizer()
 
 	tests := []struct {
 		name     string
@@ -64,7 +63,7 @@ func (m *mockXenForoClient) DownloadAttachment(url, filepath string) error {
 
 func TestDownloader(t *testing.T) {
 	mockClient := &mockXenForoClient{}
-	downloader := attachments.NewDownloader("./test_attachments", true, mockClient, 100*time.Millisecond)
+	downloader := NewDownloader("./test_attachments", true, mockClient, 100*time.Millisecond)
 
 	attachments := []xenforo.Attachment{
 		{
@@ -83,7 +82,7 @@ func TestDownloader(t *testing.T) {
 
 func TestReplaceAttachmentLinks(t *testing.T) {
 	mockClient := &mockXenForoClient{}
-	downloader := attachments.NewDownloader("./attachments", true, mockClient, 0) // No rate limiting for test
+	downloader := NewDownloader("./attachments", true, mockClient, 0) // No rate limiting for test
 
 	message := "Check out this image: [ATTACH=1] and this file: [ATTACH=full]2[/ATTACH]"
 	attachments := []xenforo.Attachment{
@@ -113,7 +112,7 @@ func TestReplaceAttachmentLinks(t *testing.T) {
 }
 
 func TestValidatePath(t *testing.T) {
-	sanitizer := attachments.NewFileSanitizer()
+	sanitizer := NewFileSanitizer()
 
 	tests := []struct {
 		name      string
@@ -273,7 +272,7 @@ func TestDownloaderRateLimiting(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockClient := &mockXenForoClient{}
-			downloader := attachments.NewDownloader("./test_attachments", false, mockClient, tt.rateLimitDelay) // Don't use dry-run for timing test
+			downloader := NewDownloader("./test_attachments", false, mockClient, tt.rateLimitDelay) // Don't use dry-run for timing test
 
 			attachments := []xenforo.Attachment{
 				{

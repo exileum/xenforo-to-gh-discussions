@@ -54,20 +54,20 @@ help: ## Show this help message
 build: ## Build the binary
 	@echo "$(CYAN)Building $(BINARY_NAME)...$(RESET)"
 	@mkdir -p $(BUILD_DIR)
-	$(GO) build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)$(BINARY_EXT) .
+	$(GO) build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)$(BINARY_EXT) ./cmd/xenforo-to-gh-discussions
 	@echo "$(GREEN)Build complete: $(BUILD_DIR)/$(BINARY_NAME)$(BINARY_EXT)$(RESET)"
 
 .PHONY: dev
 dev: ## Build for development (with race detector)
 	@echo "$(CYAN)Building development version...$(RESET)"
 	@mkdir -p $(BUILD_DIR)
-	$(GO) build -race $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-dev$(BINARY_EXT) .
+	$(GO) build -race $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-dev$(BINARY_EXT) ./cmd/xenforo-to-gh-discussions
 	@echo "$(GREEN)Development build complete: $(BUILD_DIR)/$(BINARY_NAME)-dev$(BINARY_EXT)$(RESET)"
 
 .PHONY: install
 install: ## Install binary to $GOPATH/bin
 	@echo "$(CYAN)Installing $(BINARY_NAME)...$(RESET)"
-	$(GO) install $(LDFLAGS) .
+	$(GO) install $(LDFLAGS) ./cmd/xenforo-to-gh-discussions
 	@echo "$(GREEN)Installation complete$(RESET)"
 
 .PHONY: clean
@@ -177,7 +177,7 @@ build-all: ## Build for all platforms
 		for arch in amd64 arm64; do \
 			echo "Building $$os/$$arch..."; \
 			GOOS=$$os GOARCH=$$arch $(GO) build $(LDFLAGS_RELEASE) \
-				-o $(DIST_DIR)/$(BINARY_NAME)-$$os-$$arch .; \
+				-o $(DIST_DIR)/$(BINARY_NAME)-$$os-$$arch ./cmd/xenforo-to-gh-discussions; \
 		done; \
 	done
 	@echo "$(GREEN)Cross-platform builds complete in $(DIST_DIR)/$(RESET)"

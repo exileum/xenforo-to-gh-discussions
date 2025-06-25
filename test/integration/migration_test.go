@@ -8,7 +8,7 @@ import (
 	"github.com/exileum/xenforo-to-gh-discussions/internal/config"
 	"github.com/exileum/xenforo-to-gh-discussions/internal/github"
 	"github.com/exileum/xenforo-to-gh-discussions/internal/migration"
-	"github.com/exileum/xenforo-to-gh-discussions/test/mocks"
+	"github.com/exileum/xenforo-to-gh-discussions/internal/testutil"
 )
 
 func TestMigrationIntegration(t *testing.T) {
@@ -92,8 +92,8 @@ func TestEndToEndWithMocks(t *testing.T) {
 	}
 
 	// Create mock clients
-	xenforoMock := &mocks.XenForoClient{}
-	githubMock := &mocks.GitHubClient{}
+	xenforoMock := &testutil.XenForoClient{}
+	githubMock := &testutil.GitHubClient{}
 
 	// Set up mock behaviors
 	var createdDiscussions []string

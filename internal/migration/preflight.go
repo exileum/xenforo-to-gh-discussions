@@ -10,6 +10,34 @@ import (
 	"github.com/exileum/xenforo-to-gh-discussions/internal/xenforo"
 )
 
+// runtimeCategoryValidator implements CategoryValidator for runtime GitHub API validation
+type runtimeCategoryValidator struct {
+	validCategories map[string]bool
+}
+
+func (v *runtimeCategoryValidator) ValidateSingleCategory(nodeID int, categoryID string) error {
+	if !v.validCategories[categoryID] {
+		return fmt.Errorf("invalid GitHub category ID '%s'", categoryID)
+	}
+	log.Printf("  ✓ Single category mapping validated: node %d -> %s", nodeID, categoryID)
+	return nil
+}
+
+func (v *runtimeCategoryValidator) ValidateMultiCategory(categories map[int]string) error {
+	for nodeID, categoryID := range categories {
+		if !v.validCategories[categoryID] {
+			return fmt.Errorf("invalid category ID '%s' for node %d", categoryID, nodeID)
+		}
+	}
+	log.Println("  ✓ All legacy category mappings are valid")
+	return nil
+}
+
+func (v *runtimeCategoryValidator) ValidateNoConfiguration() error {
+	// For runtime validation, no configuration is allowed (handled by preflight logic)
+	return nil
+}
+
 type PreflightChecker struct {
 	config        *config.Config
 	xenforoClient *xenforo.Client
@@ -69,21 +97,20 @@ func (p *PreflightChecker) checkGitHubAPI() error {
 		return fmt.Errorf("GitHub Discussions is not enabled for repository %s", p.config.GitHub.Repository)
 	}
 
-	// Validate category mappings
+	// Validate category configuration
 	validCategories := make(map[string]bool)
 	for _, cat := range info.DiscussionCategories {
 		validCategories[cat.ID] = true
 	}
 
-	for nodeID, categoryID := range p.config.GitHub.Categories {
-		if !validCategories[categoryID] {
-			return fmt.Errorf("invalid category ID '%s' for node %d", categoryID, nodeID)
-		}
+	// Validate category configuration using shared logic
+	validator := &runtimeCategoryValidator{validCategories: validCategories}
+	if err := config.ValidateCategoryConfiguration(p.config, validator); err != nil {
+		return err
 	}
 
 	log.Println("  ✓ GitHub API access verified")
 	log.Println("  ✓ GitHub Discussions is enabled")
-	log.Println("  ✓ All category mappings are valid")
 
 	return nil
 }
