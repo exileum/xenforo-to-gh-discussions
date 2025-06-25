@@ -1,0 +1,25 @@
+[b]Bold text[/b] and [i]italic text[/i] with [url=https://example.com]a link[/url].
+
+[quote="User"]This is a quoted message with [b]bold[/b] formatting.[/quote]
+
+[code]
+func example() {
+    return "Hello, World!"
+}
+[/code]
+
+[spoiler]This is hidden content[/spoiler]
+
+[list]
+[*]First item
+[*]Second item
+[*]Third item
+[/list]
+
+Here's an image: [img]https://example.com/image.png[/img]
+
+And an attachment: [ATTACH=123]
+
+[center]Centered text[/center]
+
+[color=red]Red text[/color] and [size=20]large text[/size].
