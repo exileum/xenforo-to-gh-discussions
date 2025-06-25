@@ -43,7 +43,7 @@ jobs:
     name: Test
     strategy:
       matrix:
-        os: [ ubuntu-latest, windows-latest, macos-latest ]
+        os: [ ubuntu-latest, macos-latest ]
         go-version: [ '1.24' ]
     runs-on: ${{ matrix.os }}
 
@@ -152,7 +152,7 @@ jobs:
     name: Build
     strategy:
       matrix:
-        os: [ ubuntu-latest, windows-latest, macos-latest ]
+        os: [ ubuntu-latest, macos-latest ]
     runs-on: ${{ matrix.os }}
     needs: [ test, integration-test ]
 
@@ -184,11 +184,7 @@ jobs:
       - name: Test binary help
         shell: bash
         run: |
-          if [[ "${{ runner.os }}" == "Windows" ]]; then
-            ./build/xenforo-to-gh-discussions.exe --help
-          else
-            ./build/xenforo-to-gh-discussions --help
-          fi
+          ./build/xenforo-to-gh-discussions --help
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4

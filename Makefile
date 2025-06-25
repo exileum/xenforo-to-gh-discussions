@@ -27,11 +27,7 @@ LDFLAGS_RELEASE := -ldflags "-w -s -X main.version=$(VERSION) -X main.buildTime=
 # Platform detection
 GOOS := $(shell go env GOOS)
 GOARCH := $(shell go env GOARCH)
-ifeq ($(GOOS),windows)
-    BINARY_EXT := .exe
-else
-    BINARY_EXT :=
-endif
+BINARY_EXT :=
 
 # Colors for output
 RED := \033[31m
@@ -177,12 +173,11 @@ deps-update: ## Update all dependencies
 build-all: ## Build for all platforms
 	@echo "$(CYAN)Building for all platforms...$(RESET)"
 	@mkdir -p $(DIST_DIR)
-	@for os in linux windows darwin; do \
+	@for os in linux darwin; do \
 		for arch in amd64 arm64; do \
-			if [ "$$os" = "windows" ]; then ext=".exe"; else ext=""; fi; \
 			echo "Building $$os/$$arch..."; \
 			GOOS=$$os GOARCH=$$arch $(GO) build $(LDFLAGS_RELEASE) \
-				-o $(DIST_DIR)/$(BINARY_NAME)-$$os-$$arch$$ext .; \
+				-o $(DIST_DIR)/$(BINARY_NAME)-$$os-$$arch .; \
 		done; \
 	done
 	@echo "$(GREEN)Cross-platform builds complete in $(DIST_DIR)/$(RESET)"

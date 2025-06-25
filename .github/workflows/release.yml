@@ -30,10 +30,6 @@ jobs:
             arch: arm64
             goos: linux
             goarch: arm64
-          - os: windows
-            arch: amd64
-            goos: windows
-            goarch: amd64
           - os: darwin
             arch: amd64
             goos: darwin
@@ -88,12 +84,6 @@ jobs:
           # Create distribution directory
           mkdir -p dist
 
-          # Set binary name with extension for Windows
-          BINARY_NAME="xenforo-to-gh-discussions"
-          if [ "${{ matrix.goos }}" = "windows" ]; then
-            BINARY_NAME="${BINARY_NAME}.exe"
-          fi
-
           # Create archive name
           ARCHIVE_NAME="xenforo-to-gh-discussions-${{ steps.version.outputs.VERSION }}-${{ matrix.os }}-${{ matrix.arch }}"
 
@@ -101,19 +91,11 @@ jobs:
           cp "build/${BINARY_NAME}" "dist/${BINARY_NAME}"
 
           # Create archives
-          if [ "${{ matrix.goos }}" = "windows" ]; then
-            cd dist && zip -r "${ARCHIVE_NAME}.zip" "${BINARY_NAME}"
-          else
-            cd dist && tar -czf "${ARCHIVE_NAME}.tar.gz" "${BINARY_NAME}"
-          fi
+          cd dist && tar -czf "${ARCHIVE_NAME}.tar.gz" "${BINARY_NAME}"
 
           # Create checksums
           cd dist
-          if [ "${{ matrix.goos }}" = "windows" ]; then
-            sha256sum "${ARCHIVE_NAME}.zip" > "${ARCHIVE_NAME}.zip.sha256"
-          else
-            sha256sum "${ARCHIVE_NAME}.tar.gz" > "${ARCHIVE_NAME}.tar.gz.sha256"
-          fi
+          sha256sum "${ARCHIVE_NAME}.tar.gz" > "${ARCHIVE_NAME}.tar.gz.sha256"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -193,9 +175,6 @@ jobs:
             # Move to PATH (optional)
             sudo mv xenforo-to-gh-discussions /usr/local/bin/
             ```
-
-            ### Windows
-            Download the `.zip` file, extract it, and run the `.exe` file.
 
             ## Usage
             ```bash
