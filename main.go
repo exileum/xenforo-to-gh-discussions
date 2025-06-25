@@ -64,7 +64,7 @@ type XenForoAttachment struct {
 	ViewURL      string `json:"view_url"`
 }
 
-// Progress tracking
+// MigrationProgress Progress tracking
 type MigrationProgress struct {
 	LastThreadID     int   `json:"last_thread_id"`
 	CompletedThreads []int `json:"completed_threads"`
@@ -327,6 +327,22 @@ func runPreflightChecks() error {
 	return nil
 }
 
+// processFormattingTag is a helper function to handle BB-code formatting tags with empty tag removal
+func processFormattingTag(input, pattern, openTag, closeTag string) string {
+	re := regexp.MustCompile(pattern)
+	return re.ReplaceAllStringFunc(input, func(match string) string {
+		submatch := re.FindStringSubmatch(match)
+		if len(submatch) < 2 {
+			return match // Return original if pattern doesn't match
+		}
+		content := submatch[1]
+		if strings.TrimSpace(content) == "" {
+			return "" // Remove empty tags entirely
+		}
+		return openTag + content + closeTag
+	})
+}
+
 func convertBBCodeToMarkdown(bbcode string) string {
 	// Handle empty or whitespace-only input
 	if strings.TrimSpace(bbcode) == "" {
@@ -382,50 +398,12 @@ func convertBBCodeToMarkdown(bbcode string) string {
 	// URLs with quotes first
 	bbcode = regexp.MustCompile(`\[url="([^"]+)"\](.*?)\[/url\]`).ReplaceAllString(bbcode, "[$2]($1)")
 
-	// Handle text formatting with empty tag removal
-	// Bold tags
-	bbcode = regexp.MustCompile(`\[b\](.*?)\[/b\]`).ReplaceAllStringFunc(bbcode, func(match string) string {
-		content := regexp.MustCompile(`\[b\](.*?)\[/b\]`).FindStringSubmatch(match)[1]
-		if strings.TrimSpace(content) == "" {
-			return "" // Remove empty tags entirely
-		}
-		return "**" + content + "**"
-	})
-	
-	// Italic tags
-	bbcode = regexp.MustCompile(`\[i\](.*?)\[/i\]`).ReplaceAllStringFunc(bbcode, func(match string) string {
-		content := regexp.MustCompile(`\[i\](.*?)\[/i\]`).FindStringSubmatch(match)[1]
-		if strings.TrimSpace(content) == "" {
-			return "" // Remove empty tags entirely
-		}
-		return "*" + content + "*"
-	})
-	
-	// Underline tags
-	bbcode = regexp.MustCompile(`\[u\](.*?)\[/u\]`).ReplaceAllStringFunc(bbcode, func(match string) string {
-		content := regexp.MustCompile(`\[u\](.*?)\[/u\]`).FindStringSubmatch(match)[1]
-		if strings.TrimSpace(content) == "" {
-			return "" // Remove empty tags entirely
-		}
-		return "<u>" + content + "</u>"
-	})
-	
-	// Strikethrough tags
-	bbcode = regexp.MustCompile(`\[s\](.*?)\[/s\]`).ReplaceAllStringFunc(bbcode, func(match string) string {
-		content := regexp.MustCompile(`\[s\](.*?)\[/s\]`).FindStringSubmatch(match)[1]
-		if strings.TrimSpace(content) == "" {
-			return "" // Remove empty tags entirely
-		}
-		return "~~" + content + "~~"
-	})
-	
-	bbcode = regexp.MustCompile(`\[strike\](.*?)\[/strike\]`).ReplaceAllStringFunc(bbcode, func(match string) string {
-		content := regexp.MustCompile(`\[strike\](.*?)\[/strike\]`).FindStringSubmatch(match)[1]
-		if strings.TrimSpace(content) == "" {
-			return "" // Remove empty tags entirely
-		}
-		return "~~" + content + "~~"
-	})
+	// Handle text formatting with empty tag removal using helper function
+	bbcode = processFormattingTag(bbcode, `\[b\](.*?)\[/b\]`, "**", "**")
+	bbcode = processFormattingTag(bbcode, `\[i\](.*?)\[/i\]`, "*", "*")
+	bbcode = processFormattingTag(bbcode, `\[u\](.*?)\[/u\]`, "<u>", "</u>")
+	bbcode = processFormattingTag(bbcode, `\[s\](.*?)\[/s\]`, "~~", "~~")
+	bbcode = processFormattingTag(bbcode, `\[strike\](.*?)\[/strike\]`, "~~", "~~")
 
 	// Simple replacements for other tags
 	replacements := []struct {
@@ -626,25 +604,25 @@ func sanitizeFilename(filename string) string {
 	if filename == "" {
 		return "unnamed_file"
 	}
-	
+
 	// Check if filename is local (no path traversal)
 	if !filepath.IsLocal(filename) {
 		// Extract just the base filename if path traversal detected
 		filename = filepath.Base(filename)
 	}
-	
+
 	// Replace filesystem-unsafe characters with underscores
 	unsafe := []string{"/", "\\", ":", "*", "?", "\"", "<", ">", "|"}
 	for _, char := range unsafe {
 		filename = strings.ReplaceAll(filename, char, "_")
 	}
-	
+
 	// Trim whitespace and ensure not empty
 	filename = strings.TrimSpace(filename)
 	if filename == "" {
 		return "unnamed_file"
 	}
-	
+
 	return filename
 }
 
@@ -671,10 +649,10 @@ func downloadAttachments(attachments []XenForoAttachment) {
 		// Download file with sanitized filename
 		sanitizedFilename := sanitizeFilename(attachment.Filename)
 		filename := fmt.Sprintf("attachment_%d_%s", attachment.AttachmentID, sanitizedFilename)
-		
+
 		// Build secure file path - filepath.Join prevents path traversal
 		filePath := filepath.Join(dir, filename)
-		
+
 		// Additional security: ensure the final path is still within our directory
 		absDir, err := filepath.Abs(dir)
 		if err != nil {
@@ -830,7 +808,16 @@ func loadProgress() *MigrationProgress {
 		return progress
 	}
 
-	json.Unmarshal(data, progress)
+	err = json.Unmarshal(data, progress)
+	if err != nil {
+		log.Printf("Failed to unmarshal progress data from %s: %v", ProgressFile, err)
+		log.Printf("Using default progress state instead of corrupted data")
+		// Return fresh progress state instead of potentially corrupted data
+		return &MigrationProgress{
+			CompletedThreads: []int{},
+			FailedThreads:    []int{},
+		}
+	}
 	return progress
 }
 

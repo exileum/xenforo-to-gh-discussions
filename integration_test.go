@@ -209,7 +209,7 @@ func TestEndToEndMigration(t *testing.T) {
 						ext = ".unknown"
 					}
 					ext = strings.TrimPrefix(ext, ".")
-					
+
 					dirPath := filepath.Join(AttachmentsDir, ext)
 					if err := os.MkdirAll(dirPath, 0755); err != nil {
 						t.Errorf("Failed to create attachment directory: %v", err)

@@ -35,6 +35,12 @@ A robust Go CLI tool to migrate forum threads, posts, and attachments from XenFo
     - Progress tracking with JSON persistence
     - Rate limiting compliance
 
+## How It Works
+
+📋 **[View detailed architecture and technical documentation →](ARCHITECTURE.md)**
+
+The migration tool follows a systematic 9-phase process to safely transfer forum content from XenForo 2 to GitHub Discussions with comprehensive error handling, progress tracking, and security measures.
+
 ## Installation
 
 ### Install from source
@@ -120,7 +126,7 @@ gh api graphql -f query='
 
 #### Method 2: GitHub GraphQL Explorer
 
-1. Go to https://docs.github.com/en/graphql/overview/explorer
++1. Go to [GitHub GraphQL Explorer](https://docs.github.com/en/graphql/overview/explorer)
 2. Run this query (replace `OWNER` and `REPO`):
 
 ```graphql
