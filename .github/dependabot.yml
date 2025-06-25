@@ -8,8 +8,6 @@ updates:
       day: "monday"
       time: "04:00"
     open-pull-requests-limit: 10
-    reviewers:
-      - "exileum"
     commit-message:
       prefix: "deps"
       include: "scope"
@@ -22,8 +20,6 @@ updates:
       day: "monday"
       time: "04:00"
     open-pull-requests-limit: 5
-    reviewers:
-      - "exileum"
     commit-message:
       prefix: "ci"
       include: "scope"
@@ -36,8 +32,6 @@ updates:
       day: "monday"
       time: "04:00"
     open-pull-requests-limit: 5
-    reviewers:
-      - "exileum"
     commit-message:
       prefix: "docker"
       include: "scope"

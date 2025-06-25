@@ -77,6 +77,7 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           VERSION: ${{ steps.version.outputs.VERSION }}
+          BINARY_NAME: xenforo-to-gh-discussions
         run: |
           make clean
           make build

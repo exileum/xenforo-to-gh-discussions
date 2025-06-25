@@ -1,0 +1,25 @@
+# CODEOWNERS file for xenforo-to-gh-discussions
+# This file defines who is responsible for code in this repository.
+# Learn more: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Global owners - these users will be requested for review on all PRs
+* @exileum
+
+# GitHub Actions workflows
+/.github/ @exileum
+
+# Documentation
+*.md @exileum
+/docs/ @exileum
+
+# Configuration files
+*.yml @exileum
+*.yaml @exileum
+*.json @exileum
+Makefile @exileum
+Dockerfile @exileum
+.gitignore @exileum
+
+# Go module files
+go.mod @exileum
+go.sum @exileum
