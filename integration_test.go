@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -308,16 +309,21 @@ func TestConcurrentOperations(t *testing.T) {
 		FailedThreads:    []int{},
 	}
 
-	// Simulate concurrent updates to progress
+	// Simulate concurrent updates to progress with proper synchronization
+	var mu sync.Mutex
 	done := make(chan bool, 2)
 
 	go func() {
+		mu.Lock()
 		progress.CompletedThreads = append(progress.CompletedThreads, 1)
+		mu.Unlock()
 		done <- true
 	}()
 
 	go func() {
+		mu.Lock()
 		progress.FailedThreads = append(progress.FailedThreads, 2)
+		mu.Unlock()
 		done <- true
 	}()
 
@@ -325,8 +331,7 @@ func TestConcurrentOperations(t *testing.T) {
 	<-done
 	<-done
 
-	// In a real implementation, you would use proper synchronization
-	// This test is simplified to demonstrate the concept
+	// Now properly synchronized to prevent race conditions
 	if len(progress.CompletedThreads) == 0 && len(progress.FailedThreads) == 0 {
 		t.Error("Concurrent operations may have caused data loss")
 	}
@@ -359,6 +364,15 @@ func TestLargeDatasetHandling(t *testing.T) {
 func generateLargeText(size int) string {
 	var text string
 	bbcodes := []string{"[b]bold[/b]", "[i]italic[/i]", "[url=http://example.com]link[/url]"}
+
+	// Ensure bbcodes is not empty to prevent panic from modulo operation
+	if len(bbcodes) == 0 {
+		// Fallback to plain text if no BB-codes are available
+		for len(text) < size {
+			text += "This is plain text. "
+		}
+		return text
+	}
 
 	for len(text) < size {
 		text += fmt.Sprintf("This is line with %s text. ", bbcodes[len(text)%len(bbcodes)])

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dlclark/regexp2"
 	"github.com/go-resty/resty/v2"
 	"github.com/shurcooL/githubv4"
 	"golang.org/x/oauth2"
@@ -426,19 +427,16 @@ func convertBBCodeToMarkdown(bbcode string) string {
 	}
 
 	// Clean up any remaining unhandled BB codes (but not markdown links or ATTACH tags)
-	// Remove BB-code patterns but preserve markdown links [text](url) and ATTACH tags
-	result = regexp.MustCompile(`\[/?[a-zA-Z][a-zA-Z0-9=_-]*\]`).ReplaceAllStringFunc(result, func(match string) string {
-		// Check if this bracket is followed by a parenthesis (markdown link)
-		matchIndex := strings.Index(result, match)
-		if matchIndex >= 0 && matchIndex+len(match) < len(result) && result[matchIndex+len(match)] == '(' {
-			return match // Preserve markdown links
-		}
-		// Preserve ATTACH tags for later processing
-		if strings.HasPrefix(match, "[ATTACH") {
+	// Use regexp2 with negative lookahead to exclude markdown links [text](url)
+	cleanupPattern := regexp2.MustCompile(`\[/?[a-zA-Z][a-zA-Z0-9=_-]*\](?!\()`, 0)
+	result, _ = cleanupPattern.ReplaceFunc(result, func(m regexp2.Match) string {
+		match := m.String()
+		// Preserve ATTACH tags for later processing (both opening and closing)
+		if strings.HasPrefix(match, "[ATTACH") || match == "[/ATTACH]" {
 			return match
 		}
 		return "" // Remove other BB-code tags
-	})
+	}, -1, -1)
 
 	// Clean up excessive newlines (but preserve intentional trailing newlines)
 	result = regexp.MustCompile(`\n{3,}`).ReplaceAllString(result, "\n\n")
