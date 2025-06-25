@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -195,7 +196,7 @@ func TestPreflightChecks(t *testing.T) {
 				t.Errorf("Expected error containing '%s' but got none", tt.errorMsg)
 			} else if !tt.expectError && err != nil {
 				t.Errorf("Unexpected error: %v", err)
-			} else if tt.expectError && err != nil && !contains(err.Error(), tt.errorMsg) {
+			} else if tt.expectError && err != nil && !strings.Contains(err.Error(), tt.errorMsg) {
 				t.Errorf("Expected error containing '%s', got '%s'", tt.errorMsg, err.Error())
 			}
 		})
@@ -261,19 +262,6 @@ func MockXenForoAPI(t *testing.T) *httptest.Server {
 	}))
 }
 
-// Helper function to check if string contains substring
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > 0 && s[0:len(substr)] == substr || len(s) > len(substr) && s[len(s)-len(substr):] == substr || (len(substr) > 0 && len(s) > len(substr) && findSubstring(s, substr)))
-}
-
-func findSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
-}
 
 // TestAPIErrorHandling tests various API error scenarios
 func TestAPIErrorHandling(t *testing.T) {
@@ -354,7 +342,7 @@ func TestAPIErrorHandling(t *testing.T) {
 				t.Errorf("Expected error but got none")
 			} else if !tt.expectError && err != nil {
 				t.Errorf("Unexpected error: %v", err)
-			} else if tt.expectError && tt.errorContains != "" && !contains(err.Error(), tt.errorContains) {
+			} else if tt.expectError && tt.errorContains != "" && !strings.Contains(err.Error(), tt.errorContains) {
 				t.Errorf("Expected error containing '%s', got '%s'", tt.errorContains, err.Error())
 			}
 		})

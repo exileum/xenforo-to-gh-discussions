@@ -226,10 +226,10 @@ func TestEndToEndMigration(t *testing.T) {
 						if body == "" {
 							t.Error("First post body is empty")
 						}
-						if !contains(body, "**test post**") {
+						if !strings.Contains(body, "**test post**") {
 							t.Error("BB-code not converted properly")
 						}
-						if !contains(body, "![test-image.png](./png/attachment_1_test-image.png)") {
+						if !strings.Contains(body, "![test-image.png](./png/attachment_1_test-image.png)") {
 							t.Error("Attachment not replaced properly")
 						}
 					}
