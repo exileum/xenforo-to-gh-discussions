@@ -35,7 +35,9 @@ var (
 // NodeToCategory maps XenForo node_id to GitHub discussion category_id
 var NodeToCategory = map[int]string{
 	1: "DIC_kwDOxxxxxxxx", // Replace with actual category ID from GitHub
-	// Add more mappings as needed
+	// Add more mappings as needed, e.g.:
+	// 2: "DIC_kwDOyyyyyyyy", // General Discussion
+	// 3: "DIC_kwDOzzzzzzzz", // Q&A
 }
 
 // XenForoThread XenForo API structures
@@ -205,7 +207,7 @@ func main() {
 						log.Printf("✗ Failed to create discussion: %v", err)
 						progress.FailedThreads = append(progress.FailedThreads, thread.ThreadID)
 						saveProgress()
-						continue
+						break // Break out of post processing loop to skip entire thread
 					}
 					discussionID = id
 					discussionNumber = num
@@ -330,7 +332,7 @@ func convertBBCodeToMarkdown(bbcode string) string {
 	if strings.TrimSpace(bbcode) == "" {
 		return ""
 	}
-	
+
 	// First, handle multi-line code blocks
 	bbcode = regexp.MustCompile(`(?s)\[code\](.*?)\[/code\]`).ReplaceAllStringFunc(bbcode, func(match string) string {
 		parts := regexp.MustCompile(`(?s)\[code\](.*?)\[/code\]`).FindStringSubmatch(match)
@@ -380,17 +382,56 @@ func convertBBCodeToMarkdown(bbcode string) string {
 	// URLs with quotes first
 	bbcode = regexp.MustCompile(`\[url="([^"]+)"\](.*?)\[/url\]`).ReplaceAllString(bbcode, "[$2]($1)")
 
-	// Simple replacements
+	// Handle text formatting with empty tag removal
+	// Bold tags
+	bbcode = regexp.MustCompile(`\[b\](.*?)\[/b\]`).ReplaceAllStringFunc(bbcode, func(match string) string {
+		content := regexp.MustCompile(`\[b\](.*?)\[/b\]`).FindStringSubmatch(match)[1]
+		if strings.TrimSpace(content) == "" {
+			return "" // Remove empty tags entirely
+		}
+		return "**" + content + "**"
+	})
+	
+	// Italic tags
+	bbcode = regexp.MustCompile(`\[i\](.*?)\[/i\]`).ReplaceAllStringFunc(bbcode, func(match string) string {
+		content := regexp.MustCompile(`\[i\](.*?)\[/i\]`).FindStringSubmatch(match)[1]
+		if strings.TrimSpace(content) == "" {
+			return "" // Remove empty tags entirely
+		}
+		return "*" + content + "*"
+	})
+	
+	// Underline tags
+	bbcode = regexp.MustCompile(`\[u\](.*?)\[/u\]`).ReplaceAllStringFunc(bbcode, func(match string) string {
+		content := regexp.MustCompile(`\[u\](.*?)\[/u\]`).FindStringSubmatch(match)[1]
+		if strings.TrimSpace(content) == "" {
+			return "" // Remove empty tags entirely
+		}
+		return "<u>" + content + "</u>"
+	})
+	
+	// Strikethrough tags
+	bbcode = regexp.MustCompile(`\[s\](.*?)\[/s\]`).ReplaceAllStringFunc(bbcode, func(match string) string {
+		content := regexp.MustCompile(`\[s\](.*?)\[/s\]`).FindStringSubmatch(match)[1]
+		if strings.TrimSpace(content) == "" {
+			return "" // Remove empty tags entirely
+		}
+		return "~~" + content + "~~"
+	})
+	
+	bbcode = regexp.MustCompile(`\[strike\](.*?)\[/strike\]`).ReplaceAllStringFunc(bbcode, func(match string) string {
+		content := regexp.MustCompile(`\[strike\](.*?)\[/strike\]`).FindStringSubmatch(match)[1]
+		if strings.TrimSpace(content) == "" {
+			return "" // Remove empty tags entirely
+		}
+		return "~~" + content + "~~"
+	})
+
+	// Simple replacements for other tags
 	replacements := []struct {
 		pattern     *regexp.Regexp
 		replacement string
 	}{
-		// Text formatting
-		{regexp.MustCompile(`\[b\](.*?)\[/b\]`), "**$1**"},
-		{regexp.MustCompile(`\[i\](.*?)\[/i\]`), "*$1*"},
-		{regexp.MustCompile(`\[u\](.*?)\[/u\]`), "<u>$1</u>"},
-		{regexp.MustCompile(`\[s\](.*?)\[/s\]`), "~~$1~~"},
-		{regexp.MustCompile(`\[strike\](.*?)\[/strike\]`), "~~$1~~"},
 
 		// URLs (without quotes)
 		{regexp.MustCompile(`\[url=([^\]]+)\](.*?)\[/url\]`), "[$2]($1)"},
@@ -579,6 +620,34 @@ func getXenForoAttachments(threadID int) ([]XenForoAttachment, error) {
 	return result.Attachments, err
 }
 
+// sanitizeFilename ensures filename is safe for filesystem use
+// Uses Go's filepath.IsLocal for basic validation and simple character replacement
+func sanitizeFilename(filename string) string {
+	if filename == "" {
+		return "unnamed_file"
+	}
+	
+	// Check if filename is local (no path traversal)
+	if !filepath.IsLocal(filename) {
+		// Extract just the base filename if path traversal detected
+		filename = filepath.Base(filename)
+	}
+	
+	// Replace filesystem-unsafe characters with underscores
+	unsafe := []string{"/", "\\", ":", "*", "?", "\"", "<", ">", "|"}
+	for _, char := range unsafe {
+		filename = strings.ReplaceAll(filename, char, "_")
+	}
+	
+	// Trim whitespace and ensure not empty
+	filename = strings.TrimSpace(filename)
+	if filename == "" {
+		return "unnamed_file"
+	}
+	
+	return filename
+}
+
 func downloadAttachments(attachments []XenForoAttachment) {
 	for _, attachment := range attachments {
 		if dryRun {
@@ -599,15 +668,36 @@ func downloadAttachments(attachments []XenForoAttachment) {
 			continue
 		}
 
-		// Download file
-		filename := fmt.Sprintf("attachment_%d_%s", attachment.AttachmentID, attachment.Filename)
+		// Download file with sanitized filename
+		sanitizedFilename := sanitizeFilename(attachment.Filename)
+		filename := fmt.Sprintf("attachment_%d_%s", attachment.AttachmentID, sanitizedFilename)
+		
+		// Build secure file path - filepath.Join prevents path traversal
 		filePath := filepath.Join(dir, filename)
+		
+		// Additional security: ensure the final path is still within our directory
+		absDir, err := filepath.Abs(dir)
+		if err != nil {
+			log.Printf("    ✗ Failed to get absolute path for directory %s: %v", dir, err)
+			continue
+		}
+		absFilePath, err := filepath.Abs(filePath)
+		if err != nil {
+			log.Printf("    ✗ Failed to get absolute path for file %s: %v", filePath, err)
+			continue
+		}
+		if !strings.HasPrefix(absFilePath, absDir+string(filepath.Separator)) && absFilePath != absDir {
+			log.Printf("    ✗ Security violation: file path escapes directory: %s", filename)
+			continue
+		}
 
+		// Check if file already exists
 		if _, err := os.Stat(filePath); err == nil {
 			log.Printf("    ⏭ Skipped (already exists): %s", filename)
 			continue
 		}
 
+		// Download file
 		resp, err := client.R().
 			SetHeader("XF-Api-Key", XenForoAPIKey).
 			SetHeader("XF-Api-User", XenForoAPIUser).
@@ -626,13 +716,14 @@ func downloadAttachments(attachments []XenForoAttachment) {
 
 func replaceAttachmentLinks(message string, attachments []XenForoAttachment) string {
 	for _, attachment := range attachments {
-		ext := strings.ToLower(filepath.Ext(attachment.Filename))
+		sanitizedFilename := sanitizeFilename(attachment.Filename)
+		ext := strings.ToLower(filepath.Ext(sanitizedFilename))
 		if ext == "" {
 			ext = ".unknown"
 		}
 		ext = strings.TrimPrefix(ext, ".")
 
-		filename := fmt.Sprintf("attachment_%d_%s", attachment.AttachmentID, attachment.Filename)
+		filename := fmt.Sprintf("attachment_%d_%s", attachment.AttachmentID, sanitizedFilename)
 		relativePath := fmt.Sprintf("./%s/%s", ext, filename)
 
 		// Determine if it's an image
@@ -644,9 +735,9 @@ func replaceAttachmentLinks(message string, attachments []XenForoAttachment) str
 
 		var markdownLink string
 		if isImage {
-			markdownLink = fmt.Sprintf("![%s](%s)", attachment.Filename, relativePath)
+			markdownLink = fmt.Sprintf("![%s](%s)", sanitizedFilename, relativePath)
 		} else {
-			markdownLink = fmt.Sprintf("[%s](%s)", attachment.Filename, relativePath)
+			markdownLink = fmt.Sprintf("[%s](%s)", sanitizedFilename, relativePath)
 		}
 
 		message = strings.ReplaceAll(message, bbCode, markdownLink)
@@ -745,8 +836,16 @@ func loadProgress() *MigrationProgress {
 
 func saveProgress() {
 	progress.LastUpdated = time.Now().Unix()
-	data, _ := json.MarshalIndent(progress, "", "  ")
-	os.WriteFile(ProgressFile, data, 0644)
+	data, err := json.MarshalIndent(progress, "", "  ")
+	if err != nil {
+		log.Printf("Failed to marshal progress data: %v", err)
+		return
+	}
+
+	err = os.WriteFile(ProgressFile, data, 0644)
+	if err != nil {
+		log.Printf("Failed to save progress to %s: %v", ProgressFile, err)
+	}
 }
 
 func filterCompletedThreads(threads []XenForoThread) []XenForoThread {

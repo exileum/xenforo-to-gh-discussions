@@ -11,20 +11,24 @@ A robust Go CLI tool to migrate forum threads, posts, and attachments from XenFo
 - **GraphQL-based GitHub Integration**: Uses GitHub's GraphQL API for creating discussions and comments
 - **Comprehensive BB-Code Support**: Converts XenForo BB codes to Markdown, including:
     - Text formatting (bold, italic, underline, strikethrough)
-    - URLs and images
+    - Empty tag detection and removal (prevents empty markdown formatting)
+    - URLs and images with markdown link preservation
     - Quotes (with attribution)
     - Code blocks
     - Spoilers (both block and inline)
     - Lists
     - Media embeds
 - **Smart Attachment Handling**:
+    - Secure filename sanitization to prevent path traversal attacks
     - Downloads attachments and organizes by file type
     - Embeds images directly in Markdown
     - Links to other file types
 - **Robust Error Handling**:
+    - Proper error handling for progress saving operations
     - Retry logic with exponential backoff for rate limits
     - Progress tracking for resumable migrations
     - Detailed error logging
+    - Thread-level failure handling to prevent partial migrations
 - **Migration Features**:
     - Dry-run mode for testing
     - Pre-flight checks to validate configuration
@@ -94,10 +98,12 @@ var (
 
 ### Getting GitHub Category IDs
 
-To find category IDs for the `NodeToCategory` mapping:
+You need to map your XenForo forum node IDs to GitHub Discussion category IDs in the `NodeToCategory` map. Here are several ways to find the category IDs:
+
+#### Method 1: GitHub CLI (Recommended)
 
 ```bash
-# Using GitHub CLI
+# Replace OWNER and REPO with your repository details
 gh api graphql -f query='
   query {
     repository(owner: "OWNER", name: "REPO") {
@@ -105,20 +111,65 @@ gh api graphql -f query='
         nodes {
           id
           name
+          description
         }
       }
     }
   }'
 ```
 
-Update the `NodeToCategory` map with your mappings:
+#### Method 2: GitHub GraphQL Explorer
+
+1. Go to https://docs.github.com/en/graphql/overview/explorer
+2. Run this query (replace `OWNER` and `REPO`):
+
+```graphql
+query {
+  repository(owner: "OWNER", name: "REPO") {
+    discussionCategories(first: 100) {
+      nodes {
+        id
+        name
+        description
+      }
+    }
+  }
+}
+```
+
+#### Method 3: Check Pre-flight Output
+
+Run the migration tool in dry-run mode - it will list valid category IDs during pre-flight checks:
+
+```bash
+./xenforo-to-gh-discussions --dry-run
+```
+
+#### Method 4: Browser Developer Tools
+
+1. Go to your repository's Discussions tab
+2. Open browser developer tools (F12)
+3. Look at network requests when clicking on a category
+4. Category IDs appear in the URL or API responses
+
+#### Understanding Category IDs
+
+GitHub Discussion category IDs have the format `DIC_kwDO` followed by encoded characters (e.g., `DIC_kwDOxxxxxxxx`).
+
+#### Updating the Mapping
+
+Once you have the category IDs, update the `NodeToCategory` map in `main.go`:
 
 ```go
 var NodeToCategory = map[int]string{
-    1: "DIC_kwDOxxxxxxxx",  // Your actual category ID
-    2: "DIC_kwDOyyyyyyyy",
+    1: "DIC_kwDOxxxxxxxx",  // General Discussion
+    2: "DIC_kwDOyyyyyyyy",  // Q&A
+    3: "DIC_kwDOzzzzzzzz",  // Announcements
+    // Add more mappings as needed
 }
 ```
+
+**Note**: Threads from XenForo nodes not mapped in this configuration will be skipped during migration.
 
 ## Usage
 
