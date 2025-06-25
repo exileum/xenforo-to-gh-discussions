@@ -12,8 +12,8 @@ A robust, well-architected Go CLI tool to migrate forum threads, posts, and atta
 - **GraphQL-based GitHub Integration**: Uses GitHub's GraphQL API for creating discussions and comments
 - **Comprehensive BB-Code Support**: Converts XenForo BB codes to Markdown, including:
     - Text formatting (bold, italic, underline, strikethrough)
-    - Empty tag detection and removal (prevents empty markdown formatting)
-    - URLs and images with markdown link preservation
+    - Empty tag detection and removal (prevents empty Markdown formatting)
+    - URLs and images with Markdown link preservation
     - Quotes (with attribution)
     - Code blocks
     - Spoilers (both block and inline)
@@ -73,13 +73,19 @@ go install github.com/exileum/xenforo-to-gh-discussions@latest
 ```bash
 git clone https://github.com/exileum/xenforo-to-gh-discussions.git
 cd xenforo-to-gh-discussions
-go build -o xenforo-to-gh-discussions .
+make build
 ```
 
-### Install dependencies manually
+### Install dependencies
 
 ```bash
-go mod download
+make deps
+```
+
+### Alternative: manual build
+
+```bash
+go build -o xenforo-to-gh-discussions .
 ```
 
 ## Prerequisites
@@ -193,10 +199,10 @@ query {
 
 #### Method 3: Check Pre-flight Output
 
-Run the migration tool in dry-run mode - it will list valid category IDs during pre-flight checks:
+Run the migration tool in dry-run mode — it will list valid category IDs during pre-flight checks:
 
 ```bash
-./xenforo-to-gh-discussions --dry-run
+./build/xenforo-to-gh-discussions --dry-run
 ```
 
 #### Updating the Category Mapping
@@ -218,7 +224,9 @@ Categories: map[int]string{
 ### Basic Migration
 
 ```bash
-./xenforo-to-gh-discussions
+make run
+# or directly:
+./build/xenforo-to-gh-discussions
 ```
 
 ### Dry Run Mode
@@ -226,7 +234,7 @@ Categories: map[int]string{
 Test the migration without making actual changes:
 
 ```bash
-./xenforo-to-gh-discussions --dry-run
+./build/xenforo-to-gh-discussions --dry-run
 ```
 
 ### Verbose Mode
@@ -234,7 +242,7 @@ Test the migration without making actual changes:
 See detailed output including converted content:
 
 ```bash
-./xenforo-to-gh-discussions --dry-run --verbose
+./build/xenforo-to-gh-discussions --dry-run --verbose
 ```
 
 ### Resume from Specific Thread
@@ -242,7 +250,7 @@ See detailed output including converted content:
 Resume migration from a specific thread ID:
 
 ```bash
-./xenforo-to-gh-discussions --resume-from=123
+./build/xenforo-to-gh-discussions --resume-from=123
 ```
 
 ### Command Line Options
@@ -301,11 +309,33 @@ Migration automatically resumes from the last successful thread if interrupted.
 
 ## Development
 
+### Quick Start with Makefile
+
+```bash
+# Get help with available commands
+make help
+
+# Set up development environment
+make deps
+
+# Build the project
+make build
+
+# Run tests
+make test
+
+# Run pre-commit checks
+make check
+
+# Format code
+make fmt
+```
+
 ### Project Structure
 
 The project follows Go best practices with a clean architecture:
 
-- `main.go`: Single entry point for CLI application
+- `main.go`: Application entry point
 - `internal/`: Private application code organized by domain
 - `test/`: All tests organized by type (unit, integration, mocks)
 
@@ -313,34 +343,78 @@ The project follows Go best practices with a clean architecture:
 
 ```bash
 # Run all tests
-go test ./...
+make test
 
 # Run unit tests only
-go test ./test/unit/...
+make test-unit
 
-# Run with coverage
-go test -cover ./...
+# Run integration tests only
+make test-integration
 
-# Run tests with verbose output
-go test -v ./...
+# Run with coverage report
+make test-coverage
+
+# Run with race detector
+make test-race
+
+# Run benchmarks
+make bench
 ```
 
-### Build for Multiple Platforms
+### Build Commands
 
 ```bash
-# Linux
-GOOS=linux GOARCH=amd64 go build -o xenforo-to-gh-discussions-linux .
+# Development build (with race detector)
+make dev
 
-# Windows
-GOOS=windows GOARCH=amd64 go build -o xenforo-to-gh-discussions.exe .
+# Production build
+make build
 
-# macOS
-GOOS=darwin GOARCH=amd64 go build -o xenforo-to-gh-discussions-macos .
+# Install to $GOPATH/bin
+make install
+
+# Build for all platforms
+make build-all
+
+# Create release packages
+make package
 ```
 
 ### Code Quality
 
-The codebase maintains high quality standards:
+```bash
+# Format code
+make fmt
+
+# Run linter checks
+make lint
+
+# Run golangci-lint (if installed)
+make golangci-lint
+
+# Run all pre-commit checks
+make check
+```
+
+### Development Workflow
+
+```bash
+# Watch for changes and auto-rebuild
+make watch
+
+# Clean build artifacts
+make clean
+
+# Update dependencies
+make deps-update
+
+# Tidy dependencies
+make tidy
+```
+
+### Code Quality
+
+The codebase maintains high-quality standards:
 
 - **Cyclomatic Complexity**: All functions kept below 15 complexity
 - **Package Organization**: Clear separation of concerns
@@ -367,7 +441,7 @@ The tool validates all configuration before starting:
 
 ```bash
 # Check configuration without running migration
-./xenforo-to-gh-discussions --dry-run
+make run -- --dry-run
 ```
 
 ## Security Notes
@@ -392,6 +466,6 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 ## Acknowledgments
 
 - [XenForo REST API Documentation](https://xenforo.com/docs/dev/rest-api/)
-- [GitHub Discussions API](https://docs.github.com/en/rest/discussions)
+- [GitHub Discussions API](https://docs.github.com/en/graphql/guides/using-the-graphql-api-for-discussions)
 - [Go Resty Library](https://github.com/go-resty/resty)
 - [GitHub GraphQL Client](https://github.com/shurcooL/githubv4)
