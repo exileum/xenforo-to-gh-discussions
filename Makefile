@@ -123,11 +123,14 @@ bench: ## Run benchmarks
 .PHONY: lint
 lint: ## Run code quality checks
 	@echo "$(CYAN)Running code quality checks...$(RESET)"
-	@$(GOFMT) -d -s . | tee /tmp/gofmt-output
-	@if [ -s /tmp/gofmt-output ]; then \
+	@GOFMT_TEMP=$$(mktemp) && \
+	$(GOFMT) -d -s . | tee "$$GOFMT_TEMP" && \
+	if [ -s "$$GOFMT_TEMP" ]; then \
 		echo "$(RED)Code formatting issues found. Run 'make fmt' to fix.$(RESET)"; \
+		rm -f "$$GOFMT_TEMP"; \
 		exit 1; \
-	fi
+	fi; \
+	rm -f "$$GOFMT_TEMP"
 	@$(GOVET) ./...
 	@$(GO) mod verify
 	@echo "$(GREEN)Code quality checks passed$(RESET)"

@@ -12,8 +12,8 @@ A robust, well-architected Go CLI tool to migrate forum threads, posts, and atta
 - **GraphQL-based GitHub Integration**: Uses GitHub's GraphQL API for creating discussions and comments
 - **Comprehensive BB-Code Support**: Converts XenForo BB codes to Markdown, including:
     - Text formatting (bold, italic, underline, strikethrough)
-    - Empty tag detection and removal (prevents empty markdown formatting)
-    - URLs and images with markdown link preservation
+    - Empty tag detection and removal (prevents empty Markdown formatting)
+    - URLs and images with Markdown link preservation
     - Quotes (with attribution)
     - Code blocks
     - Spoilers (both block and inline)
@@ -199,10 +199,10 @@ query {
 
 #### Method 3: Check Pre-flight Output
 
-Run the migration tool in dry-run mode - it will list valid category IDs during pre-flight checks:
+Run the migration tool in dry-run mode — it will list valid category IDs during pre-flight checks:
 
 ```bash
-./xenforo-to-gh-discussions --dry-run
+./build/xenforo-to-gh-discussions --dry-run
 ```
 
 #### Updating the Category Mapping
@@ -414,7 +414,7 @@ make tidy
 
 ### Code Quality
 
-The codebase maintains high quality standards:
+The codebase maintains high-quality standards:
 
 - **Cyclomatic Complexity**: All functions kept below 15 complexity
 - **Package Organization**: Clear separation of concerns
