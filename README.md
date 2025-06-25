@@ -4,10 +4,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Version](https://img.shields.io/badge/Go-1.24+-blue.svg)](https://golang.org)
 
-A robust Go CLI tool to migrate forum threads, posts, and attachments from XenForo 2 to GitHub Discussions using their respective APIs.
+A robust, well-architected Go CLI tool to migrate forum threads, posts, and attachments from XenForo 2 to GitHub Discussions using their respective APIs.
 
 ## Features
 
+- **Clean Architecture**: Modular design with separate packages for different concerns
 - **GraphQL-based GitHub Integration**: Uses GitHub's GraphQL API for creating discussions and comments
 - **Comprehensive BB-Code Support**: Converts XenForo BB codes to Markdown, including:
     - Text formatting (bold, italic, underline, strikethrough)
@@ -34,12 +35,30 @@ A robust Go CLI tool to migrate forum threads, posts, and attachments from XenFo
     - Pre-flight checks to validate configuration
     - Progress tracking with JSON persistence
     - Rate limiting compliance
+    - Environment variable support for configuration
 
-## How It Works
+## Architecture
 
 📋 **[View detailed architecture and technical documentation →](ARCHITECTURE.md)**
 
-The migration tool follows a systematic 9-phase process to safely transfer forum content from XenForo 2 to GitHub Discussions with comprehensive error handling, progress tracking, and security measures.
+The migration tool follows a clean architecture pattern with well-separated concerns:
+
+```
+main.go                # Application entry point (30 lines, minimal)
+internal/
+├── config/            # Configuration management with env var support
+├── xenforo/           # XenForo API client and models
+├── github/            # GitHub GraphQL client and operations
+├── bbcode/            # BB-code to Markdown conversion
+├── attachments/       # File download and processing
+├── progress/          # Migration progress tracking
+└── migration/         # Migration orchestration and execution
+test/
+├── unit/              # Unit tests for individual packages
+├── integration/       # Integration tests
+├── mocks/             # Mock implementations for testing
+└── testdata/          # Test data and fixtures
+```
 
 ## Installation
 
@@ -72,17 +91,46 @@ go mod download
 
 ## Configuration
 
-Edit the constants in `main.go`:
+The tool supports both environment variables and default configuration. Environment variables take precedence.
+
+### Environment Variables
+
+```bash
+# XenForo Configuration
+export XENFORO_API_URL="https://your-forum.com/api"
+export XENFORO_API_KEY="your_xenforo_api_key"
+export XENFORO_API_USER="1"
+export XENFORO_NODE_ID="1"
+
+# GitHub Configuration
+export GITHUB_TOKEN="your_github_token"
+export GITHUB_REPO="owner/repository"
+
+# Migration Settings
+export MAX_RETRIES="3"
+export PROGRESS_FILE="migration_progress.json"
+export ATTACHMENTS_DIR="./attachments"
+```
+
+### Code-based Configuration
+
+If not using environment variables, you can modify the defaults in `internal/config/config.go`:
 
 ```go
-var (
-    XenForoAPIURL  = "https://your-forum.com/api"
-    XenForoAPIKey  = "your_xenforo_api_key"
-    XenForoAPIUser = "1"  // Admin user ID
-    GitHubToken    = "your_github_token"
-    GitHubRepo     = "owner/repository"
-    TargetNodeID   = 1    // XenForo forum ID to migrate
-)
+// Default values used when environment variables are not set
+XenForo: XenForoConfig{
+    APIURL:  "https://your-forum.com/api",
+    APIKey:  "your_xenforo_api_key",
+    APIUser: "1",
+    NodeID:  1,
+},
+GitHub: GitHubConfig{
+    Token:      "your_github_token",
+    Repository: "owner/repository",
+    Categories: map[int]string{
+        1: "DIC_kwDOxxxxxxxx", // Map node IDs to category IDs
+    },
+},
 ```
 
 ### Setting up XenForo API
@@ -104,7 +152,7 @@ var (
 
 ### Getting GitHub Category IDs
 
-You need to map your XenForo forum node IDs to GitHub Discussion category IDs in the `NodeToCategory` map. Here are several ways to find the category IDs:
+You need to map your XenForo forum node IDs to GitHub Discussion category IDs in the configuration. Here are several ways to find the category IDs:
 
 #### Method 1: GitHub CLI (Recommended)
 
@@ -126,7 +174,7 @@ gh api graphql -f query='
 
 #### Method 2: GitHub GraphQL Explorer
 
-+1. Go to [GitHub GraphQL Explorer](https://docs.github.com/en/graphql/overview/explorer)
+1. Go to [GitHub GraphQL Explorer](https://docs.github.com/en/graphql/overview/explorer)
 2. Run this query (replace `OWNER` and `REPO`):
 
 ```graphql
@@ -151,27 +199,15 @@ Run the migration tool in dry-run mode - it will list valid category IDs during 
 ./xenforo-to-gh-discussions --dry-run
 ```
 
-#### Method 4: Browser Developer Tools
+#### Updating the Category Mapping
 
-1. Go to your repository's Discussions tab
-2. Open browser developer tools (F12)
-3. Look at network requests when clicking on a category
-4. Category IDs appear in the URL or API responses
-
-#### Understanding Category IDs
-
-GitHub Discussion category IDs have the format `DIC_kwDO` followed by encoded characters (e.g., `DIC_kwDOxxxxxxxx`).
-
-#### Updating the Mapping
-
-Once you have the category IDs, update the `NodeToCategory` map in `main.go`:
+Once you have the category IDs, update the mapping in your configuration:
 
 ```go
-var NodeToCategory = map[int]string{
+Categories: map[int]string{
     1: "DIC_kwDOxxxxxxxx",  // General Discussion
     2: "DIC_kwDOyyyyyyyy",  // Q&A
     3: "DIC_kwDOzzzzzzzz",  // Announcements
-    // Add more mappings as needed
 }
 ```
 
@@ -265,16 +301,28 @@ Migration automatically resumes from the last successful thread if interrupted.
 
 ## Development
 
+### Project Structure
+
+The project follows Go best practices with a clean architecture:
+
+- `main.go`: Single entry point for CLI application
+- `internal/`: Private application code organized by domain
+- `test/`: All tests organized by type (unit, integration, mocks)
+
 ### Running Tests
 
 ```bash
-go test -v ./...
-```
+# Run all tests
+go test ./...
 
-### Running with Coverage
+# Run unit tests only
+go test ./test/unit/...
 
-```bash
+# Run with coverage
 go test -cover ./...
+
+# Run tests with verbose output
+go test -v ./...
 ```
 
 ### Build for Multiple Platforms
@@ -290,6 +338,15 @@ GOOS=windows GOARCH=amd64 go build -o xenforo-to-gh-discussions.exe .
 GOOS=darwin GOARCH=amd64 go build -o xenforo-to-gh-discussions-macos .
 ```
 
+### Code Quality
+
+The codebase maintains high quality standards:
+
+- **Cyclomatic Complexity**: All functions kept below 15 complexity
+- **Package Organization**: Clear separation of concerns
+- **Test Coverage**: Comprehensive unit and integration tests
+- **Documentation**: Detailed README and architecture docs
+
 ## Troubleshooting
 
 ### Pre-flight Check Failures
@@ -302,13 +359,23 @@ GOOS=darwin GOARCH=amd64 go build -o xenforo-to-gh-discussions-macos .
 
 1. **Rate Limiting**: The tool automatically handles rate limits with exponential backoff
 2. **Large Attachments**: Consider increasing timeout values for large file downloads
-3. **Memory Usage**: For forums with many threads, consider migrating in batches by updating `TargetNodeID`
+3. **Memory Usage**: For forums with many threads, consider migrating in batches by updating `XENFORO_NODE_ID`
+
+### Configuration Validation
+
+The tool validates all configuration before starting:
+
+```bash
+# Check configuration without running migration
+./xenforo-to-gh-discussions --dry-run
+```
 
 ## Security Notes
 
 - Never commit the script with actual API credentials
 - Use environment variables for production deployments
 - Ensure the attachment repository is public if you want images to display
+- The tool includes path traversal protection for downloaded files
 
 ## Contributing
 
