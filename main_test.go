@@ -176,9 +176,29 @@ func TestConvertBBCodeToMarkdown(t *testing.T) {
 
 		// Edge cases
 		{
-			name:     "Empty tags",
+			name:     "Empty bold tags",
 			input:    "[b][/b]",
-			expected: "****",
+			expected: "",
+		},
+		{
+			name:     "Empty italic tags",
+			input:    "[i][/i]",
+			expected: "",
+		},
+		{
+			name:     "Empty tags with whitespace",
+			input:    "[b]   [/b]",
+			expected: "",
+		},
+		{
+			name:     "Multiple empty tags",
+			input:    "[b][/b][i][/i][u][/u]",
+			expected: "",
+		},
+		{
+			name:     "Empty tags mixed with content",
+			input:    "Hello [b][/b] world [i]italic[/i]",
+			expected: "Hello  world *italic*",
 		},
 		{
 			name:     "Unclosed tags",
