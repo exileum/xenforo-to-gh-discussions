@@ -8,7 +8,7 @@ The migration tool has been completely refactored to follow clean architecture p
 
 ### Package Structure
 
-```
+```text
 main.go                          # Application entry point (30 lines, complexity ~2)
 
 internal/                        # Private application packages
@@ -39,18 +39,22 @@ internal/                        # Private application packages
 
 test/                           # Test organization following Go best practices
 ├── unit/                       # Unit tests for individual packages
-│   ├── bbcode_test.go
 │   ├── attachment_test.go
+│   ├── bbcode_test.go
+│   ├── config_test.go
+│   ├── github_test.go
+│   ├── migration_test.go
 │   ├── progress_test.go
-│   └── config_test.go
+│   ├── xenforo_test.go
+│   └── test_attachments/       # Test attachment files
+│       └── png/
 ├── integration/                # Integration and end-to-end tests
 │   └── migration_test.go
 ├── mocks/                      # Mock implementations for testing
 │   ├── github_mock.go
 │   └── xenforo_mock.go
 └── testdata/                   # Test data and fixtures
-    ├── sample_responses/
-    └── fixtures/
+    └── sample_bbcode.txt
 ```
 
 ## Architectural Improvements
@@ -160,6 +164,7 @@ sequenceDiagram
 ## Error Handling Strategy
 
 ### 1. Layered Error Handling
+
 ```go
 // Package-level errors
 var (
@@ -184,6 +189,7 @@ return fmt.Errorf("failed to create discussion: %w", err)
 ## Security Enhancements
 
 ### 1. Path Traversal Protection
+
 ```go
 func (s *FileSanitizer) ValidatePath(filePath, baseDir string) error {
     // Comprehensive path validation
@@ -220,7 +226,8 @@ func (s *FileSanitizer) ValidatePath(filePath, baseDir string) error {
 - **Performance testing**: Ensure scalability
 
 ### 3. Test Organization
-```
+
+```text
 test/
 ├── unit/           # Fast, isolated tests
 ├── integration/    # Slower, system tests

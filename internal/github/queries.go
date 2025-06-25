@@ -67,14 +67,20 @@ func (c *Client) GetRepositoryInfo(repo string) (*RepositoryInfo, error) {
 	}
 
 	c.repositoryID = info.ID
+	c.repositoryName = repo
 
 	return info, nil
 }
 
 func (c *Client) ValidateCategoryMappings(categories map[int]string) error {
-	info, err := c.GetRepositoryInfo("")
+	// Ensure we have a repository name stored
+	if strings.TrimSpace(c.repositoryName) == "" {
+		return fmt.Errorf("repository name not set - call GetRepositoryInfo first")
+	}
+
+	info, err := c.GetRepositoryInfo(c.repositoryName)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to validate category mappings: %w", err)
 	}
 
 	validCategories := make(map[string]bool)

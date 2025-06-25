@@ -3,6 +3,7 @@ package unit
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/exileum/xenforo-to-gh-discussions/internal/attachments"
 	"github.com/exileum/xenforo-to-gh-discussions/internal/xenforo"
@@ -63,7 +64,7 @@ func (m *mockXenForoClient) DownloadAttachment(url, filepath string) error {
 
 func TestDownloader(t *testing.T) {
 	mockClient := &mockXenForoClient{}
-	downloader := attachments.NewDownloader("./test_attachments", true, mockClient)
+	downloader := attachments.NewDownloader("./test_attachments", true, mockClient, 100*time.Millisecond)
 
 	attachments := []xenforo.Attachment{
 		{
@@ -82,7 +83,7 @@ func TestDownloader(t *testing.T) {
 
 func TestReplaceAttachmentLinks(t *testing.T) {
 	mockClient := &mockXenForoClient{}
-	downloader := attachments.NewDownloader("./attachments", true, mockClient)
+	downloader := attachments.NewDownloader("./attachments", true, mockClient, 0) // No rate limiting for test
 
 	message := "Check out this image: [ATTACH=1] and this file: [ATTACH=full]2[/ATTACH]"
 	attachments := []xenforo.Attachment{
@@ -108,5 +109,196 @@ func TestReplaceAttachmentLinks(t *testing.T) {
 	// Should replace document with markdown link syntax
 	if !strings.Contains(result, "[document.pdf](./pdf/attachment_2_document.pdf)") {
 		t.Error("Should replace document attachment with markdown link syntax")
+	}
+}
+
+func TestValidatePath(t *testing.T) {
+	sanitizer := attachments.NewFileSanitizer()
+
+	tests := []struct {
+		name      string
+		filePath  string
+		baseDir   string
+		shouldErr bool
+		errMsg    string
+	}{
+		{
+			name:      "Valid path within base directory",
+			filePath:  "/tmp/safe/file.txt",
+			baseDir:   "/tmp/safe",
+			shouldErr: false,
+		},
+		{
+			name:      "Valid subdirectory path",
+			filePath:  "/tmp/safe/subdir/file.txt",
+			baseDir:   "/tmp/safe",
+			shouldErr: false,
+		},
+		{
+			name:      "Path equals base directory",
+			filePath:  "/tmp/safe",
+			baseDir:   "/tmp/safe",
+			shouldErr: false,
+		},
+		{
+			name:      "Simple directory traversal with ../",
+			filePath:  "/tmp/safe/../../../etc/passwd",
+			baseDir:   "/tmp/safe",
+			shouldErr: true,
+			errMsg:    "path traversal detected",
+		},
+		{
+			name:      "Directory traversal at start",
+			filePath:  "../../../etc/passwd",
+			baseDir:   "/tmp/safe",
+			shouldErr: true,
+			errMsg:    "path traversal detected",
+		},
+		{
+			name:      "Directory traversal in middle",
+			filePath:  "/tmp/safe/subdir/../../../etc/passwd",
+			baseDir:   "/tmp/safe",
+			shouldErr: true,
+			errMsg:    "path traversal detected",
+		},
+		{
+			name:      "Directory traversal at end (resolves to parent)",
+			filePath:  "/tmp/safe/../",
+			baseDir:   "/tmp/safe",
+			shouldErr: true,
+			errMsg:    "path traversal detected",
+		},
+		{
+			name:      "Single .. path",
+			filePath:  "..",
+			baseDir:   "/tmp/safe",
+			shouldErr: true,
+			errMsg:    "path traversal detected",
+		},
+		{
+			name:      "Multiple .. segments",
+			filePath:  "../../..",
+			baseDir:   "/tmp/safe",
+			shouldErr: true,
+			errMsg:    "path traversal detected",
+		},
+		{
+			name:      "Encoded directory traversal (should be normalized)",
+			filePath:  "/tmp/safe/subdir/%2E%2E/file.txt",
+			baseDir:   "/tmp/safe",
+			shouldErr: false, // This should be valid as %2E%2E won't be decoded by filepath
+		},
+		{
+			name:      "Symlink-style traversal attempt",
+			filePath:  "/tmp/safe/link/../../../etc/passwd",
+			baseDir:   "/tmp/safe",
+			shouldErr: true,
+			errMsg:    "path traversal detected",
+		},
+		{
+			name:      "Windows-style path separators (on Unix)",
+			filePath:  "/tmp/safe/subdir\\..\\..\\etc\\passwd",
+			baseDir:   "/tmp/safe",
+			shouldErr: false, // On Unix, backslashes are treated as regular filename characters
+		},
+		{
+			name:      "Valid relative path within base directory",
+			filePath:  "/tmp/safe/file.txt",
+			baseDir:   "/tmp",
+			shouldErr: false,
+		},
+		{
+			name:      "Complex valid nested path",
+			filePath:  "/tmp/safe/deep/nested/directory/file.txt",
+			baseDir:   "/tmp/safe",
+			shouldErr: false,
+		},
+		{
+			name:      "Path with .. that gets cleaned but still escapes",
+			filePath:  "/tmp/safe/subdir/../../etc/passwd",
+			baseDir:   "/tmp/safe",
+			shouldErr: true,
+			errMsg:    "path traversal detected",
+		},
+		{
+			name:      "Valid file within subdirectory that gets cleaned",
+			filePath:  "/tmp/safe/subdir/../file.txt",
+			baseDir:   "/tmp/safe",
+			shouldErr: false, // This resolves to /tmp/safe/file.txt which is valid
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := sanitizer.ValidatePath(tt.filePath, tt.baseDir)
+
+			if tt.shouldErr {
+				if err == nil {
+					t.Errorf("Expected error but got none for path: %s", tt.filePath)
+					return
+				}
+				if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("Expected error message to contain %q, got %q", tt.errMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected no error but got: %v for path: %s", err, tt.filePath)
+				}
+			}
+		})
+	}
+}
+
+func TestDownloaderRateLimiting(t *testing.T) {
+	tests := []struct {
+		name           string
+		rateLimitDelay time.Duration
+		expectMinTime  time.Duration
+		expectMaxTime  time.Duration
+	}{
+		{
+			name:           "No rate limiting (zero delay)",
+			rateLimitDelay: 0,
+			expectMinTime:  0,
+			expectMaxTime:  50 * time.Millisecond, // Allow some processing overhead
+		},
+		{
+			name:           "Short rate limiting",
+			rateLimitDelay: 100 * time.Millisecond,
+			expectMinTime:  80 * time.Millisecond,  // Allow some timing variance
+			expectMaxTime:  150 * time.Millisecond, // Allow some processing overhead
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient := &mockXenForoClient{}
+			downloader := attachments.NewDownloader("./test_attachments", false, mockClient, tt.rateLimitDelay) // Don't use dry-run for timing test
+
+			attachments := []xenforo.Attachment{
+				{
+					AttachmentID: 1,
+					Filename:     "test.png",
+					ViewURL:      "https://example.com/1",
+				},
+			}
+
+			// Measure execution time
+			start := time.Now()
+			err := downloader.DownloadAttachments(attachments)
+			elapsed := time.Since(start)
+
+			if err != nil {
+				t.Errorf("DownloadAttachments should not return error: %v", err)
+			}
+
+			// Verify timing expectations
+			if elapsed < tt.expectMinTime {
+				t.Errorf("Expected minimum time %v, but took %v", tt.expectMinTime, elapsed)
+			}
+			if elapsed > tt.expectMaxTime {
+				t.Errorf("Expected maximum time %v, but took %v", tt.expectMaxTime, elapsed)
+			}
+		})
 	}
 }

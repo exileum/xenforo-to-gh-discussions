@@ -29,7 +29,6 @@ func (p *PreflightChecker) RunChecks() error {
 
 	if p.config.Migration.DryRun {
 		log.Println("  Running in DRY-RUN mode - no actual changes will be made")
-		return nil
 	}
 
 	if err := p.checkXenForoAPI(); err != nil {
@@ -57,7 +56,7 @@ func (p *PreflightChecker) checkXenForoAPI() error {
 }
 
 func (p *PreflightChecker) checkGitHubAPI() error {
-	if p.config.Migration.DryRun || p.githubClient == nil {
+	if p.githubClient == nil {
 		return nil
 	}
 
@@ -90,6 +89,15 @@ func (p *PreflightChecker) checkGitHubAPI() error {
 }
 
 func (p *PreflightChecker) checkFileSystem() error {
+	if p.config.Migration.DryRun {
+		// In dry-run mode, just check if the path is valid without creating the directory
+		if p.config.Filesystem.AttachmentsDir == "" {
+			return fmt.Errorf("attachments directory path is empty")
+		}
+		log.Println("  ✓ Attachments directory path validated (dry-run)")
+		return nil
+	}
+
 	if err := os.MkdirAll(p.config.Filesystem.AttachmentsDir, 0755); err != nil {
 		return fmt.Errorf("failed to create attachments directory: %w", err)
 	}

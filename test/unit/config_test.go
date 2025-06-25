@@ -3,6 +3,7 @@ package unit
 import (
 	"os"
 	"testing"
+	"time"
 
 	"github.com/exileum/xenforo-to-gh-discussions/internal/config"
 )
@@ -21,15 +22,21 @@ func TestConfigDefaults(t *testing.T) {
 	if cfg.Filesystem.AttachmentsDir != "./attachments" {
 		t.Error("Default attachments directory not set correctly")
 	}
+
+	if cfg.Filesystem.AttachmentRateLimitDelay != 500*time.Millisecond {
+		t.Error("Default attachment rate limit delay not set correctly")
+	}
 }
 
 func TestConfigEnvironmentVariables(t *testing.T) {
 	// Set environment variables
 	os.Setenv("XENFORO_API_URL", "https://test-forum.com/api")
 	os.Setenv("MAX_RETRIES", "5")
+	os.Setenv("ATTACHMENT_RATE_LIMIT_DELAY", "1s")
 	defer func() {
 		os.Unsetenv("XENFORO_API_URL")
 		os.Unsetenv("MAX_RETRIES")
+		os.Unsetenv("ATTACHMENT_RATE_LIMIT_DELAY")
 	}()
 
 	cfg := config.New()
@@ -40,6 +47,10 @@ func TestConfigEnvironmentVariables(t *testing.T) {
 
 	if cfg.Migration.MaxRetries != 5 {
 		t.Error("Environment variable for max retries not used")
+	}
+
+	if cfg.Filesystem.AttachmentRateLimitDelay != 1*time.Second {
+		t.Error("Environment variable for attachment rate limit delay not used")
 	}
 }
 

@@ -17,18 +17,20 @@ type Downloader struct {
 	attachmentsDir string
 	dryRun         bool
 	client         XenForoDownloader
+	rateLimitDelay time.Duration
 }
 
 type XenForoDownloader interface {
 	DownloadAttachment(url, filepath string) error
 }
 
-func NewDownloader(attachmentsDir string, dryRun bool, client XenForoDownloader) *Downloader {
+func NewDownloader(attachmentsDir string, dryRun bool, client XenForoDownloader, rateLimitDelay time.Duration) *Downloader {
 	return &Downloader{
 		sanitizer:      NewFileSanitizer(),
 		attachmentsDir: attachmentsDir,
 		dryRun:         dryRun,
 		client:         client,
+		rateLimitDelay: rateLimitDelay,
 	}
 }
 
@@ -78,7 +80,12 @@ func (d *Downloader) downloadSingle(attachment xenforo.Attachment) error {
 	}
 
 	log.Printf("    ✓ Downloaded: %s", filename)
-	time.Sleep(500 * time.Millisecond) // Rate limiting
+
+	// Configurable rate limiting
+	if d.rateLimitDelay > 0 {
+		time.Sleep(d.rateLimitDelay)
+	}
+
 	return nil
 }
 

@@ -1,6 +1,7 @@
 package migration
 
 import (
+	"fmt"
 	"log"
 	"time"
 
@@ -51,11 +52,16 @@ func (r *Runner) RunMigration() error {
 
 		if err := r.processThread(thread); err != nil {
 			log.Printf("✗ Failed to process thread %d: %v", thread.ThreadID, err)
-			r.tracker.MarkFailed(thread.ThreadID)
+			if markErr := r.tracker.MarkFailed(thread.ThreadID); markErr != nil {
+				log.Printf("✗ Warning: Failed to mark thread %d as failed in progress tracker: %v", thread.ThreadID, markErr)
+			}
 			continue
 		}
 
-		r.tracker.MarkCompleted(thread.ThreadID)
+		if err := r.tracker.MarkCompleted(thread.ThreadID); err != nil {
+			log.Printf("✗ Warning: Failed to mark thread %d as completed in progress tracker: %v", thread.ThreadID, err)
+			// Continue processing despite tracking error - the thread was actually processed successfully
+		}
 	}
 
 	r.tracker.PrintSummary()
@@ -86,7 +92,10 @@ func (r *Runner) processThread(thread xenforo.Thread) error {
 	// Download attachments
 	if len(attachments) > 0 {
 		log.Printf("  Downloading %d attachments...", len(attachments))
-		r.downloader.DownloadAttachments(attachments)
+		if err := r.downloader.DownloadAttachments(attachments); err != nil {
+			log.Printf("✗ Warning: Failed to download attachments for thread %d: %v", thread.ThreadID, err)
+			// Continue processing without attachments - the thread content can still be migrated
+		}
 	}
 
 	// Process posts
@@ -101,7 +110,11 @@ func (r *Runner) processThread(thread xenforo.Thread) error {
 		markdown = r.downloader.ReplaceAttachmentLinks(markdown, attachments)
 
 		// Format message with metadata
-		body := r.processor.FormatMessage(post.Username, post.PostDate, thread.ThreadID, markdown)
+		body, err := r.processor.FormatMessage(post.Username, post.PostDate, thread.ThreadID, markdown)
+		if err != nil {
+			log.Printf("  Error formatting message for post by %s: %v", post.Username, err)
+			return fmt.Errorf("failed to format message: %w", err)
+		}
 
 		if j == 0 {
 			// Create discussion from first post

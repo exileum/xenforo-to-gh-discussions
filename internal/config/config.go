@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"time"
 )
 
 type Config struct {
@@ -34,7 +35,8 @@ type MigrationConfig struct {
 }
 
 type FilesystemConfig struct {
-	AttachmentsDir string
+	AttachmentsDir           string
+	AttachmentRateLimitDelay time.Duration
 }
 
 func New() *Config {
@@ -57,7 +59,8 @@ func New() *Config {
 			ProgressFile: getEnvOrDefault("PROGRESS_FILE", "migration_progress.json"),
 		},
 		Filesystem: FilesystemConfig{
-			AttachmentsDir: getEnvOrDefault("ATTACHMENTS_DIR", "./attachments"),
+			AttachmentsDir:           getEnvOrDefault("ATTACHMENTS_DIR", "./attachments"),
+			AttachmentRateLimitDelay: getEnvDurationOrDefault("ATTACHMENT_RATE_LIMIT_DELAY", 500*time.Millisecond),
 		},
 	}
 }
@@ -73,6 +76,15 @@ func getEnvIntOrDefault(key string, defaultValue int) int {
 	if value := os.Getenv(key); value != "" {
 		if intValue, err := strconv.Atoi(value); err == nil {
 			return intValue
+		}
+	}
+	return defaultValue
+}
+
+func getEnvDurationOrDefault(key string, defaultValue time.Duration) time.Duration {
+	if value := os.Getenv(key); value != "" {
+		if duration, err := time.ParseDuration(value); err == nil {
+			return duration
 		}
 	}
 	return defaultValue

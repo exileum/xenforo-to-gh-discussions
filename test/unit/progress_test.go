@@ -80,8 +80,12 @@ func TestFilterCompletedThreads(t *testing.T) {
 	}
 
 	// Mark some threads as completed
-	tracker.MarkCompleted(1)
-	tracker.MarkCompleted(3)
+	if err := tracker.MarkCompleted(1); err != nil {
+		t.Fatalf("Failed to mark thread 1 as completed: %v", err)
+	}
+	if err := tracker.MarkCompleted(3); err != nil {
+		t.Fatalf("Failed to mark thread 3 as completed: %v", err)
+	}
 
 	threads := []xenforo.Thread{
 		{ThreadID: 1, Title: "Thread 1"},
@@ -102,5 +106,81 @@ func TestFilterCompletedThreads(t *testing.T) {
 		if !expectedIDs[thread.ThreadID] {
 			t.Errorf("Unexpected thread ID %d in filtered results", thread.ThreadID)
 		}
+	}
+}
+
+func TestMarkCompletedDuplicatePrevention(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "duplicate-test-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	progressFile := filepath.Join(tempDir, "test_progress.json")
+
+	tracker, err := progress.NewTracker(progressFile, false)
+	if err != nil {
+		t.Fatalf("Failed to create tracker: %v", err)
+	}
+
+	// Mark thread 1 as completed multiple times
+	if err := tracker.MarkCompleted(1); err != nil {
+		t.Fatalf("Failed to mark thread 1 as completed: %v", err)
+	}
+	if err := tracker.MarkCompleted(1); err != nil {
+		t.Fatalf("Failed to mark thread 1 as completed (duplicate): %v", err)
+	}
+	if err := tracker.MarkCompleted(1); err != nil {
+		t.Fatalf("Failed to mark thread 1 as completed (duplicate 2): %v", err)
+	}
+
+	// Check that thread 1 appears only once in CompletedThreads
+	progress := tracker.GetProgress()
+	count := 0
+	for _, id := range progress.CompletedThreads {
+		if id == 1 {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Errorf("Expected thread 1 to appear once in CompletedThreads, but found %d occurrences", count)
+	}
+}
+
+func TestMarkFailedDuplicatePrevention(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "duplicate-failed-test-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	progressFile := filepath.Join(tempDir, "test_progress.json")
+
+	tracker, err := progress.NewTracker(progressFile, false)
+	if err != nil {
+		t.Fatalf("Failed to create tracker: %v", err)
+	}
+
+	// Mark thread 2 as failed multiple times
+	if err := tracker.MarkFailed(2); err != nil {
+		t.Fatalf("Failed to mark thread 2 as failed: %v", err)
+	}
+	if err := tracker.MarkFailed(2); err != nil {
+		t.Fatalf("Failed to mark thread 2 as failed (duplicate): %v", err)
+	}
+	if err := tracker.MarkFailed(2); err != nil {
+		t.Fatalf("Failed to mark thread 2 as failed (duplicate 2): %v", err)
+	}
+
+	// Check that thread 2 appears only once in FailedThreads
+	progress := tracker.GetProgress()
+	count := 0
+	for _, id := range progress.FailedThreads {
+		if id == 2 {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Errorf("Expected thread 2 to appear once in FailedThreads, but found %d occurrences", count)
 	}
 }

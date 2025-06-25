@@ -48,12 +48,26 @@ func (t *Tracker) SetResumeFrom(threadID int) {
 }
 
 func (t *Tracker) MarkCompleted(threadID int) error {
+	// Check if threadID already exists in CompletedThreads
+	for _, id := range t.progress.CompletedThreads {
+		if id == threadID {
+			return nil // Already marked as completed, no need to add again
+		}
+	}
+
 	t.progress.CompletedThreads = append(t.progress.CompletedThreads, threadID)
 	t.progress.LastThreadID = threadID
 	return t.save()
 }
 
 func (t *Tracker) MarkFailed(threadID int) error {
+	// Check if threadID already exists in FailedThreads
+	for _, id := range t.progress.FailedThreads {
+		if id == threadID {
+			return nil // Already marked as failed, no need to add again
+		}
+	}
+
 	t.progress.FailedThreads = append(t.progress.FailedThreads, threadID)
 	return t.save()
 }

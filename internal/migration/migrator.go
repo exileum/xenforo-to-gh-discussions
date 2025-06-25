@@ -59,6 +59,7 @@ func (m *Migrator) Run() error {
 		m.config.Filesystem.AttachmentsDir,
 		m.config.Migration.DryRun,
 		xenforoClient,
+		m.config.Filesystem.AttachmentRateLimitDelay,
 	)
 
 	// Run pre-flight checks
