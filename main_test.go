@@ -406,6 +406,47 @@ func TestProgressTracking(t *testing.T) {
 	}
 }
 
+// TestProgressTrackingCorruptedJSON tests handling of corrupted progress files
+func TestProgressTrackingCorruptedJSON(t *testing.T) {
+	// Create a temporary directory for testing
+	tempDir, err := os.MkdirTemp("", "godisc-test-corrupted-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Override progress file location
+	oldProgressFile := ProgressFile
+	testProgressFile := filepath.Join(tempDir, "corrupted_progress.json")
+	ProgressFile = testProgressFile
+	defer func() {
+		ProgressFile = oldProgressFile
+	}()
+
+	// Write corrupted JSON to the file
+	corruptedJSON := `{"last_thread_id": 100, "completed_threads": [1, 2, 3, INVALID_JSON`
+	err = os.WriteFile(testProgressFile, []byte(corruptedJSON), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Test loading corrupted progress - should return default state
+	loadedProgress := loadProgress()
+	
+	// Verify that we get a clean default state instead of corrupted data
+	if loadedProgress.LastThreadID != 0 {
+		t.Errorf("Expected LastThreadID to be 0 for corrupted data, got %d", loadedProgress.LastThreadID)
+	}
+	
+	if len(loadedProgress.CompletedThreads) != 0 {
+		t.Errorf("Expected empty CompletedThreads for corrupted data, got %v", loadedProgress.CompletedThreads)
+	}
+	
+	if len(loadedProgress.FailedThreads) != 0 {
+		t.Errorf("Expected empty FailedThreads for corrupted data, got %v", loadedProgress.FailedThreads)
+	}
+}
+
 // TestFilterCompletedThreads tests the thread filtering logic
 func TestFilterCompletedThreads(t *testing.T) {
 	// Set up test progress
