@@ -1,0 +1,113 @@
+package unit
+
+import (
+	"os"
+	"testing"
+
+	"github.com/exileum/xenforo-to-gh-discussions/internal/config"
+)
+
+func TestConfigDefaults(t *testing.T) {
+	cfg := config.New()
+
+	if cfg.XenForo.APIURL != "https://your-forum.com/api" {
+		t.Error("Default XenForo API URL not set correctly")
+	}
+
+	if cfg.Migration.MaxRetries != 3 {
+		t.Error("Default max retries not set correctly")
+	}
+
+	if cfg.Filesystem.AttachmentsDir != "./attachments" {
+		t.Error("Default attachments directory not set correctly")
+	}
+}
+
+func TestConfigEnvironmentVariables(t *testing.T) {
+	// Set environment variables
+	os.Setenv("XENFORO_API_URL", "https://test-forum.com/api")
+	os.Setenv("MAX_RETRIES", "5")
+	defer func() {
+		os.Unsetenv("XENFORO_API_URL")
+		os.Unsetenv("MAX_RETRIES")
+	}()
+
+	cfg := config.New()
+
+	if cfg.XenForo.APIURL != "https://test-forum.com/api" {
+		t.Error("Environment variable for XenForo API URL not used")
+	}
+
+	if cfg.Migration.MaxRetries != 5 {
+		t.Error("Environment variable for max retries not used")
+	}
+}
+
+func TestConfigValidation(t *testing.T) {
+	tests := []struct {
+		name      string
+		setup     func(*config.Config)
+		shouldErr bool
+	}{
+		{
+			name: "Valid config",
+			setup: func(cfg *config.Config) {
+				cfg.XenForo.APIURL = "https://forum.example.com/api"
+				cfg.XenForo.APIKey = "valid_key"
+				cfg.XenForo.APIUser = "1"
+				cfg.XenForo.NodeID = 1
+				cfg.GitHub.Token = "valid_token"
+				cfg.GitHub.Repository = "owner/repo"
+				cfg.GitHub.Categories = map[int]string{1: "DIC_kwDOtest123"}
+			},
+			shouldErr: false,
+		},
+		{
+			name: "Invalid XenForo URL",
+			setup: func(cfg *config.Config) {
+				cfg.XenForo.APIURL = "https://your-forum.com/api"
+			},
+			shouldErr: true,
+		},
+		{
+			name: "Invalid GitHub repository format",
+			setup: func(cfg *config.Config) {
+				cfg.XenForo.APIURL = "https://forum.example.com/api"
+				cfg.XenForo.APIKey = "valid_key"
+				cfg.XenForo.APIUser = "1"
+				cfg.XenForo.NodeID = 1
+				cfg.GitHub.Token = "valid_token"
+				cfg.GitHub.Repository = "invalid_format"
+			},
+			shouldErr: true,
+		},
+		{
+			name: "No category mappings",
+			setup: func(cfg *config.Config) {
+				cfg.XenForo.APIURL = "https://forum.example.com/api"
+				cfg.XenForo.APIKey = "valid_key"
+				cfg.XenForo.APIUser = "1"
+				cfg.XenForo.NodeID = 1
+				cfg.GitHub.Token = "valid_token"
+				cfg.GitHub.Repository = "owner/repo"
+				cfg.GitHub.Categories = map[int]string{}
+			},
+			shouldErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := config.New()
+			tt.setup(cfg)
+
+			err := cfg.Validate()
+			if tt.shouldErr && err == nil {
+				t.Error("Expected validation error but got none")
+			}
+			if !tt.shouldErr && err != nil {
+				t.Errorf("Expected no validation error but got: %v", err)
+			}
+		})
+	}
+}

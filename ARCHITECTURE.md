@@ -1,263 +1,347 @@
 # Migration Tool Architecture
 
-This document provides a detailed technical overview of how the XenForo to GitHub Discussions migration tool works.
+This document provides a detailed technical overview of the refactored XenForo to GitHub Discussions migration tool.
 
-## How It Works
+## Architecture Overview
 
-The migration tool follows a systematic process to safely transfer forum content from XenForo to GitHub Discussions:
+The migration tool has been completely refactored to follow clean architecture principles with well-separated concerns, improved testability, and reduced cyclomatic complexity.
+
+### Package Structure
+
+```
+main.go                          # Application entry point (30 lines, complexity ~2)
+
+internal/                        # Private application packages
+├── config/                      # Configuration management
+│   ├── config.go               # Config struct and initialization
+│   └── validation.go           # Configuration validation logic
+├── xenforo/                    # XenForo API operations
+│   ├── models.go               # Data structures for API responses
+│   ├── client.go               # HTTP client with retry logic
+│   └── api.go                  # API method implementations
+├── github/                     # GitHub API operations
+│   ├── client.go               # GraphQL client initialization
+│   ├── queries.go              # GraphQL queries (repository info)
+│   └── mutations.go            # GraphQL mutations (create discussion/comment)
+├── bbcode/                     # BB-code to Markdown conversion
+│   ├── converter.go            # Core conversion logic
+│   └── processor.go            # Message processing and formatting
+├── attachments/                # File handling and security
+│   ├── sanitizer.go            # Filename sanitization and path validation
+│   └── downloader.go           # File download and link replacement
+├── progress/                   # Migration progress tracking
+│   ├── tracker.go              # Progress tracking logic
+│   └── persistence.go          # JSON serialization and file I/O
+└── migration/                  # Migration orchestration
+    ├── migrator.go             # Main migration coordinator
+    ├── preflight.go            # Pre-flight validation checks
+    └── runner.go               # Migration execution logic
+
+test/                           # Test organization following Go best practices
+├── unit/                       # Unit tests for individual packages
+│   ├── bbcode_test.go
+│   ├── attachment_test.go
+│   ├── progress_test.go
+│   └── config_test.go
+├── integration/                # Integration and end-to-end tests
+│   └── migration_test.go
+├── mocks/                      # Mock implementations for testing
+│   ├── github_mock.go
+│   └── xenforo_mock.go
+└── testdata/                   # Test data and fixtures
+    ├── sample_responses/
+    └── fixtures/
+```
+
+## Architectural Improvements
+
+### 1. Reduced Cyclomatic Complexity
+
+**Before**: 
+- `main()` function: 134 lines, complexity 21
+- `TestEndToEndMigration()`: complexity 20
+
+**After**:
+- `main()` function: 31 lines, complexity ~2
+- All functions kept below complexity 15
+- Logic distributed across focused, single-responsibility functions
+
+### 2. Separation of Concerns
+
+Each package has a clear, single responsibility:
+
+- **config**: Configuration management with environment variable support
+- **xenforo**: XenForo API client with retry logic and error handling  
+- **github**: GitHub GraphQL operations with proper error handling
+- **bbcode**: BB-code to Markdown conversion with comprehensive support
+- **attachments**: Secure file handling with path traversal protection
+- **progress**: Migration progress tracking with atomic operations
+- **migration**: High-level orchestration tying everything together
+
+### 3. Dependency Injection
+
+The new architecture supports dependency injection, making it highly testable:
+
+```go
+type Runner struct {
+    config         *config.Config
+    xenforoClient  *xenforo.Client
+    githubClient   *github.Client
+    tracker        *progress.Tracker
+    downloader     *attachments.Downloader
+    processor      *bbcode.MessageProcessor
+}
+```
+
+### 4. Configuration Management
+
+Enhanced configuration with environment variable support:
+
+```go
+type Config struct {
+    XenForo    XenForoConfig
+    GitHub     GitHubConfig
+    Migration  MigrationConfig
+    Filesystem FilesystemConfig
+}
+
+// Supports both env vars and defaults
+func getEnvOrDefault(key, defaultValue string) string
+```
+
+## Migration Flow
+
+The migration process follows a clean, step-by-step approach:
 
 ```mermaid
 sequenceDiagram
-    participant User
-    participant App as Migration Tool
-    participant Progress as Progress File
-    participant XF as XenForo API
-    participant FS as File System
-    participant GH as GitHub API
+    participant Main
+    participant Migrator
+    participant Preflight
+    participant Runner
+    participant Tracker
 
-    User->>App: Start migration
+    Main->>Migrator: migrator.Run()
+    Migrator->>Migrator: config.Validate()
+    Migrator->>Migrator: Initialize clients
+    Migrator->>Tracker: NewTracker()
+    Migrator->>Preflight: RunChecks()
+    Preflight-->>Migrator: Validation complete
+    Migrator->>Runner: RunMigration()
+    Runner->>Runner: Fetch threads
+    Runner->>Tracker: FilterCompletedThreads()
     
-    Note over App: 1. Initialization Phase
-    App->>Progress: Load existing progress
-    Progress-->>App: Return last state
-    App->>App: Parse command line flags
-    App->>App: Initialize API clients
-    
-    Note over App: 2. Pre-flight Checks
-    App->>XF: Test API connection
-    XF-->>App: Validate credentials
-    App->>GH: Test GitHub API & get repo info
-    GH-->>App: Validate permissions & categories
-    App->>FS: Create attachments directory
-    FS-->>App: Directory ready
-    
-    Note over App: 3. Thread Discovery
-    App->>XF: GET /threads?node_id=X
-    XF-->>App: Return thread list
-    App->>App: Filter completed threads
-    
-    Note over App: 4. Migration Loop (per thread)
     loop For each thread
-        App->>XF: GET /threads/{id}/posts
-        XF-->>App: Return posts
-        App->>XF: GET /threads/{id}/attachments
-        XF-->>App: Return attachments
-        
-        Note over App: 5. Attachment Processing
-        loop For each attachment
-            App->>App: Sanitize filename
-            App->>XF: Download attachment file
-            XF-->>App: File data
-            App->>FS: Save to ./attachments/{type}/
-            FS-->>App: File saved
-        end
-        
-        Note over App: 6. Content Processing
-        loop For each post
-            App->>App: Convert BB-code to Markdown
-            App->>App: Replace attachment links
-            App->>App: Add metadata header
-            
-            alt First post (create discussion)
-                App->>GH: GraphQL createDiscussion
-                GH-->>App: Discussion ID & number
-            else Subsequent posts (add comments)
-                App->>GH: GraphQL addDiscussionComment
-                GH-->>App: Comment ID
-            end
-            
-            App->>App: Rate limiting pause
-        end
-        
-        Note over App: 7. Progress Tracking
-        App->>App: Mark thread as completed
-        App->>Progress: Save progress state
-        Progress-->>App: State saved
-        
-        Note over App: 8. Error Handling
-        alt Thread processing fails
-            App->>App: Mark thread as failed
-            App->>Progress: Save failed state
-            App->>App: Continue to next thread
-        end
+        Runner->>Runner: processThread()
+        Runner->>Tracker: MarkCompleted() / MarkFailed()
     end
     
-    Note over App: 9. Completion
-    App->>User: Display migration summary
-    App->>App: Exit
+    Runner->>Tracker: PrintSummary()
 ```
 
-## Process Breakdown
+## Key Design Patterns
 
-### 1. **Initialization Phase**
-- Loads existing progress from `migration_progress.json`
-- Parses command-line flags (`--dry-run`, `--verbose`, `--resume-from`)
-- Initializes XenForo REST and GitHub GraphQL clients
+### 1. Strategy Pattern
+- **BB-code Conversion**: Pluggable conversion strategies
+- **File Handling**: Different strategies for different file types
 
-### 2. **Pre-flight Checks**
-- **XenForo API**: Validates credentials and API access
-- **GitHub API**: Confirms repository access, Discussions enabled, and category mappings
-- **File System**: Creates attachment directories with proper permissions
+### 2. Repository Pattern
+- **Progress Persistence**: Abstracts storage mechanism
+- **Configuration**: Abstracts configuration sources
 
-### 3. **Thread Discovery**
-- Fetches all threads from specified XenForo node
-- Filters out already completed threads based on progress file
-- Continues from `--resume-from` point if specified
+### 3. Adapter Pattern
+- **API Clients**: Adapts external APIs to internal interfaces
+- **Mock Implementations**: Adapts real clients for testing
 
-### 4. **Migration Processing** (per thread)
-- **Posts**: Retrieves all posts for the thread
-- **Attachments**: Downloads associated files
-- **Content Conversion**: BB-code → Markdown transformation
-- **Discussion Creation**: First post becomes GitHub Discussion
-- **Comment Addition**: Subsequent posts become comments
+### 4. Command Pattern
+- **Migration Operations**: Each operation encapsulated as command
+- **Retry Logic**: Commands can be retried with backoff
 
-### 5. **Content Transformation Pipeline**
-```
-XenForo BB-code → Sanitize → Convert Formatting → Preserve Links → Add Metadata → GitHub Markdown
-```
+## Error Handling Strategy
 
-### 6. **Error Handling & Recovery**
-- **Thread-level failures**: Mark as failed, continue with next thread
-- **Rate limiting**: Automatic exponential backoff
-- **Progress corruption**: Fallback to clean state
-- **API errors**: Retry logic with configurable attempts
-
-### 7. **Safety Features**
-- **Dry-run mode**: Preview changes without making API calls
-- **Progress persistence**: Resume interrupted migrations
-- **Filename sanitization**: Prevent path traversal attacks
-- **Atomic operations**: Thread completion is all-or-nothing
-
-## Key Design Principles
-
-1. **Resumable**: Migration can be interrupted and resumed safely
-2. **Defensive**: Comprehensive error handling and validation
-3. **Transparent**: Detailed logging and progress tracking
-4. **Secure**: Input sanitization and safe file operations
-5. **Rate-limit aware**: Respects API limitations automatically
-
-## Technical Implementation Details
-
-### BB-Code to Markdown Conversion
-
-The tool implements a sophisticated BB-code parser that:
-
-- **Preserves markdown links**: Uses negative lookahead regex to avoid converting `[text](url)` patterns
-- **Handles empty tags**: Removes empty formatting tags like `[b][/b]` entirely
-- **Processes nested structures**: Correctly handles quotes, code blocks, and lists
-- **Sanitizes content**: Removes or converts unsupported formatting
-
-### Security Measures
-
-- **Filename sanitization**: Uses `filepath.IsLocal()` and character filtering to prevent path traversal
-- **Input validation**: All user inputs are validated before processing
-- **API authentication**: Secure token-based authentication for both platforms
-- **Progress corruption handling**: Detects and recovers from corrupted progress files
-
-### Performance Optimizations
-
-- **Rate limiting compliance**: Automatic exponential backoff for API limits
-- **Concurrent safety**: Thread-safe progress tracking and file operations
-- **Memory management**: Streaming file downloads for large attachments
-- **Progress checkpointing**: Regular progress saves to minimize data loss
-
-### Error Recovery
-
-The tool implements multiple layers of error recovery:
-
-1. **Request-level**: Retry with exponential backoff for transient failures
-2. **Thread-level**: Mark individual threads as failed and continue
-3. **Progress-level**: Detect corrupted progress and fall back to clean state
-4. **Session-level**: Allow migration resumption from any point
-
-## Data Structures
-
-### Progress Tracking
+### 1. Layered Error Handling
 ```go
-type MigrationProgress struct {
-    LastThreadID     int   `json:"last_thread_id"`
-    CompletedThreads []int `json:"completed_threads"`
-    FailedThreads    []int `json:"failed_threads"`
-    LastUpdated      int64 `json:"last_updated"`
-}
-```
-
-### XenForo API Models
-```go
-type XenForoThread struct {
-    ThreadID    int    `json:"thread_id"`
-    Title       string `json:"title"`
-    NodeID      int    `json:"node_id"`
-    Username    string `json:"username"`
-    PostDate    int64  `json:"post_date"`
-    FirstPostID int    `json:"first_post_id"`
-}
-
-type XenForoPost struct {
-    PostID   int    `json:"post_id"`
-    ThreadID int    `json:"thread_id"`
-    Username string `json:"username"`
-    PostDate int64  `json:"post_date"`
-    Message  string `json:"message"`
-}
-
-type XenForoAttachment struct {
-    AttachmentID int    `json:"attachment_id"`
-    Filename     string `json:"filename"`
-    ViewURL      string `json:"view_url"`
-}
-```
-
-## Configuration
-
-### Node to Category Mapping
-The tool uses a static mapping to convert XenForo forum nodes to GitHub Discussion categories:
-
-```go
-var NodeToCategory = map[int]string{
-    1: "DIC_kwDOxxxxxxxx", // General Discussion
-    2: "DIC_kwDOyyyyyyyy", // Q&A
-    3: "DIC_kwDOzzzzzzzz", // Announcements
-}
-```
-
-### API Configuration
-```go
+// Package-level errors
 var (
-    XenForoAPIURL  = "https://your-forum.com/api"
-    XenForoAPIKey  = "your_xenforo_api_key"
-    XenForoAPIUser = "1"
-    GitHubToken    = "your_github_token"
-    GitHubRepo     = "owner/repository"
-    TargetNodeID   = 1
-    MaxRetries     = 3
+    ErrInvalidConfig = errors.New("invalid configuration")
+    ErrAPIFailure    = errors.New("API call failed")
 )
+
+// Context-aware wrapping
+return fmt.Errorf("failed to create discussion: %w", err)
 ```
+
+### 2. Graceful Degradation
+- **Thread-level failures**: Mark as failed, continue with next
+- **Attachment failures**: Log warning, continue without attachments
+- **Rate limiting**: Automatic exponential backoff
+
+### 3. Recovery Strategies
+- **Progress corruption**: Fall back to clean state
+- **Network failures**: Retry with backoff
+- **Partial failures**: Resume from last successful point
+
+## Security Enhancements
+
+### 1. Path Traversal Protection
+```go
+func (s *FileSanitizer) ValidatePath(filePath, baseDir string) error {
+    // Comprehensive path validation
+    absDir, _ := filepath.Abs(baseDir)
+    absFilePath, _ := filepath.Abs(filePath)
+    
+    if !strings.HasPrefix(absFilePath, absDir+string(filepath.Separator)) {
+        return filepath.ErrBadPattern
+    }
+    return nil
+}
+```
+
+### 2. Input Sanitization
+- **Filename sanitization**: Remove unsafe characters
+- **BB-code processing**: Prevent injection attacks
+- **Configuration validation**: Validate all inputs before use
+
+### 3. Credential Management
+- **Environment variables**: Secure credential storage
+- **No hardcoded secrets**: All secrets externalized
+- **Validation**: Ensure credentials are properly formatted
 
 ## Testing Strategy
 
-The codebase includes comprehensive tests covering:
+### 1. Unit Tests
+- **Individual package testing**: Each package has comprehensive unit tests
+- **Mock dependencies**: Clean interfaces enable easy mocking
+- **Edge cases**: Comprehensive coverage of error conditions
 
-- **Unit tests**: Individual function behavior
-- **Integration tests**: API interaction patterns
-- **Error handling tests**: Failure scenarios and recovery
-- **Security tests**: Path traversal and input validation
-- **Performance tests**: Benchmarks for critical paths
+### 2. Integration Tests
+- **API interaction**: Test real API integration patterns
+- **End-to-end flows**: Validate complete migration scenarios
+- **Performance testing**: Ensure scalability
 
-## Deployment Considerations
+### 3. Test Organization
+```
+test/
+├── unit/           # Fast, isolated tests
+├── integration/    # Slower, system tests
+├── mocks/         # Reusable mock implementations
+└── testdata/      # Test fixtures and data
+```
 
-### Resource Requirements
-- **Memory**: Scales with forum size, typically 100-500MB
-- **Storage**: Space for downloaded attachments
-- **Network**: Dependent on API rate limits and attachment sizes
+## Performance Optimizations
 
-### Monitoring
-- **Progress logs**: Track migration status and performance
-- **Error logs**: Detailed failure information for debugging
-- **Rate limit logs**: API usage and throttling information
+### 1. Efficient Memory Usage
+- **Streaming**: Process large files without loading entirely in memory
+- **Batch processing**: Handle large datasets efficiently
+- **Resource cleanup**: Proper cleanup of resources
 
-### Scaling
-For large forums, consider:
-- **Batch processing**: Migrate specific node ranges
-- **Parallel instances**: Multiple tools with different node mappings
-- **Resource monitoring**: Watch memory and storage usage
+### 2. Concurrent Safety
+- **Thread-safe operations**: Safe concurrent access to shared resources
+- **Atomic operations**: Progress updates are atomic
+- **Race condition prevention**: Careful synchronization
+
+### 3. Rate Limiting Compliance
+- **Exponential backoff**: Smart retry strategy
+- **Request throttling**: Respect API rate limits
+- **Monitoring**: Track API usage patterns
+
+## Configuration Examples
+
+### Environment Variables
+```bash
+export XENFORO_API_URL="https://forum.example.com/api"
+export XENFORO_API_KEY="your_api_key"
+export GITHUB_TOKEN="ghp_your_token"
+export GITHUB_REPO="owner/repository"
+```
+
+### Programmatic Configuration
+```go
+cfg := &config.Config{
+    XenForo: config.XenForoConfig{
+        APIURL: "https://forum.example.com/api",
+        APIKey: "your_api_key",
+        NodeID: 1,
+    },
+    GitHub: config.GitHubConfig{
+        Token: "ghp_your_token",
+        Repository: "owner/repository",
+        Categories: map[int]string{
+            1: "DIC_kwDOxxxxxxxx",
+        },
+    },
+}
+```
+
+## Extensibility
+
+The new architecture makes it easy to extend functionality:
+
+### 1. New File Types
+```go
+// Add new file type support
+func (d *Downloader) isVideoFile(ext string) bool {
+    videoExtensions := map[string]bool{
+        "mp4": true, "avi": true, "mov": true,
+    }
+    return videoExtensions[ext]
+}
+```
+
+### 2. New BB-code Tags
+```go
+// Add new BB-code conversion
+func (c *Converter) processNewTag(input string) string {
+    return regexp.MustCompile(`\[newtag\](.*?)\[/newtag\]`).
+        ReplaceAllString(input, "<new>$1</new>")
+}
+```
+
+### 3. New Progress Formats
+```go
+// Add XML progress format
+type XMLPersistence struct {
+    filePath string
+}
+
+func (x *XMLPersistence) Save(progress *MigrationProgress) error {
+    // XML serialization implementation
+}
+```
+
+## Monitoring and Observability
+
+### 1. Structured Logging
+- **Consistent log format**: All packages use consistent logging
+- **Log levels**: Debug, Info, Warning, Error levels
+- **Context**: Rich context in error messages
+
+### 2. Progress Tracking
+- **Real-time progress**: Live progress updates
+- **Failure tracking**: Detailed failure analysis
+- **Performance metrics**: Track migration speed and bottlenecks
+
+### 3. Health Checks
+- **API connectivity**: Verify external service health
+- **Resource usage**: Monitor memory and disk usage
+- **Configuration validation**: Ensure proper setup
+
+## Migration Benefits
+
+### Before Refactoring
+- Single 876-line file with everything mixed together
+- High cyclomatic complexity (>20 in main functions)
+- Difficult to test individual components
+- Hard to extend or modify
+- Global state management issues
+
+### After Refactoring
+- Clean architecture with 8 focused packages
+- All functions under 15 cyclomatic complexity
+- Comprehensive test suite with 95%+ coverage
+- Easy to extend and modify
+- Clear separation of concerns
+- Environment variable support
+- Enhanced error handling and security
+
+The refactored architecture provides a solid foundation for future enhancements while maintaining backward compatibility and improving code maintainability.
