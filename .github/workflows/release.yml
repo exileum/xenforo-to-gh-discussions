@@ -95,7 +95,6 @@ jobs:
           cd dist && tar -czf "${ARCHIVE_NAME}.tar.gz" "${BINARY_NAME}"
 
           # Create checksums
-          cd dist
           sha256sum "${ARCHIVE_NAME}.tar.gz" > "${ARCHIVE_NAME}.tar.gz.sha256"
 
       - name: Upload artifacts
