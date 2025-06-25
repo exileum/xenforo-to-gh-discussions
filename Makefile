@@ -220,9 +220,9 @@ check: lint test ## Run pre-commit checks (lint + test)
 	@echo "$(GREEN)All checks passed - ready to commit!$(RESET)"
 
 .PHONY: run
-run: build ## Build and run the application
+run: build ## Build and run the application (use ARGS="--flag" to pass arguments)
 	@echo "$(CYAN)Running $(BINARY_NAME)...$(RESET)"
-	./$(BUILD_DIR)/$(BINARY_NAME)$(BINARY_EXT)
+	./$(BUILD_DIR)/$(BINARY_NAME)$(BINARY_EXT) $(ARGS)
 
 .PHONY: watch
 watch: ## Auto-rebuild on file changes (requires entr)
