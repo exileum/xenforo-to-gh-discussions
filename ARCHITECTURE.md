@@ -347,13 +347,22 @@ type XenForoAttachment struct {
 > For automated deployments, use environment variables with `--non-interactive`:
 
 ```bash
+# XenForo Configuration
 export XENFORO_API_URL="https://your-forum.com/api"
 export XENFORO_API_KEY="your_xenforo_api_key"
 export XENFORO_API_USER="1"
+export XENFORO_NODE_ID="42" # XenForo category/node ID to migrate from
+
+# GitHub Configuration
 export GITHUB_TOKEN="your_github_token"
 export GITHUB_REPO="owner/repository"
+export GITHUB_CATEGORY_ID="DIC_kwDOxxxxxxxx" # GitHub Discussion category ID to migrate to
+
+# Migration Settings
 export MAX_RETRIES="3"
 export ATTACHMENTS_DIR="./attachments"
+export PROGRESS_FILE="migration_progress.json" # Optional: custom progress file path
+export ATTACHMENT_RATE_LIMIT_DELAY="500ms" # Optional: delay between downloads
 ```
 
 ### Dynamic Category Selection

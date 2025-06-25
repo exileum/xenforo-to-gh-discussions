@@ -144,7 +144,7 @@ jobs:
 
       - name: Test binary dry-run (should fail config validation)
         run: |
-          if ./build/xenforo-to-gh-discussions --dry-run 2>&1 | grep -q "configuration validation failed"; then
+          if ./build/xenforo-to-gh-discussions --dry-run --non-interactive 2>&1 | grep -q "configuration validation failed"; then
             echo "✓ Configuration validation working correctly"
           else
             echo "✗ Configuration validation not working as expected"

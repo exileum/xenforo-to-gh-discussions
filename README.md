@@ -267,8 +267,8 @@ Migration automatically resumes from the last successful thread if interrupted.
 The tool validates all configurations before starting:
 
 ```bash
-# Check configuration without running migration
-make run -- --dry-run
+# Check configuration without running migration (requires env vars)
+make run -- --dry-run --non-interactive
 ```
 
 ## Security Notes
