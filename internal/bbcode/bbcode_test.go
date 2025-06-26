@@ -50,6 +50,11 @@ func TestBBCodeConverter(t *testing.T) {
 			input:    "This is [b]bold[/b] and [i]italic[/i] text with [url=https://example.com]a link[/url].",
 			expected: "This is **bold** and *italic* text with [a link](https://example.com).",
 		},
+		{
+			name:     "Quotes with attribution",
+			input:    "[quote=\"John\"]This is a quoted message[/quote]",
+			expected: "> **John said:**\n> This is a quoted message\n",
+		},
 	}
 
 	for _, tt := range tests {
@@ -71,6 +76,56 @@ func TestMessageProcessor(t *testing.T) {
 
 	if result != expected {
 		t.Errorf("Expected %q, got %q", expected, result)
+	}
+}
+
+func TestAtMentionConversion(t *testing.T) {
+	processor := NewMessageProcessor()
+
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "Simple @ mention",
+			input:    "Hello @john how are you?",
+			expected: "Hello **john** how are you?",
+		},
+		{
+			name:     "Multiple @ mentions",
+			input:    "@alice and @bob are here",
+			expected: "**alice** and **bob** are here",
+		},
+		{
+			name:     "@ mention with underscore",
+			input:    "Hey @user_name",
+			expected: "Hey **user_name**",
+		},
+		{
+			name:     "@ mention with hyphen",
+			input:    "Hi @user-name",
+			expected: "Hi **user-name**",
+		},
+		{
+			name:     "Email should not be converted",
+			input:    "Contact user@example.com for help",
+			expected: "Contact user@example.com for help",
+		},
+		{
+			name:     "Mixed content",
+			input:    "Thanks @admin for [b]fixing[/b] the issue!",
+			expected: "Thanks **admin** for **fixing** the issue!",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := processor.ProcessContent(tt.input)
+			if result != tt.expected {
+				t.Errorf("Expected %q, got %q", tt.expected, result)
+			}
+		})
 	}
 }
 
@@ -211,7 +266,7 @@ func TestFormatMessage(t *testing.T) {
 				}
 
 				// Verify content structure for valid cases
-				if !strings.Contains(result, fmt.Sprintf("Author: %s", strings.TrimSpace(tt.username))) {
+				if !strings.Contains(result, fmt.Sprintf("Author: **%s**", strings.TrimSpace(tt.username))) {
 					t.Error("Message should contain author")
 				}
 				if !strings.Contains(result, fmt.Sprintf("Original Thread ID: %d", tt.threadID)) {
