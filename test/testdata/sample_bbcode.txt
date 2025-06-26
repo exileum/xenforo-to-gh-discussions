@@ -23,3 +23,7 @@ And an attachment: [ATTACH=123]
 [center]Centered text[/center]
 
 [color=red]Red text[/color] and [size=20]large text[/size].
+
+Thanks @admin for the help! Also ping @moderator-user and @user_name.
+
+But don't convert emails like contact@example.com or user@domain.org.
