@@ -1,3 +1,5 @@
+<p align="center"><img src=".github/images/logo.png" width="250" alt="XenForo to GitHub Discussions Migration Tool" /></p>
+
 # XenForo to GitHub Discussions Migration Tool
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -282,14 +284,8 @@ make run -- --dry-run --non-interactive
 > - Ensure the attachment repository is public if you want images to display
 > - The tool includes path traversal protection for downloaded files
 
-
-## License
-
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
-
 ## Acknowledgments
 
 - [XenForo REST API Documentation](https://xenforo.com/docs/dev/rest-api/)
 - [GitHub Discussions API](https://docs.github.com/en/graphql/guides/using-the-graphql-api-for-discussions)
-- [Go Resty Library](https://github.com/go-resty/resty)
 - [GitHub GraphQL Client](https://github.com/shurcooL/githubv4)

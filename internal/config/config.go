@@ -29,14 +29,12 @@ type GitHubConfig struct {
 }
 
 type MigrationConfig struct {
-	MaxRetries               int
-	DryRun                   bool
-	Verbose                  bool
-	ResumeFrom               int
-	ProgressFile             string
-	UserMapping              map[int]int
-	AttachmentsDir           string        // Temporary, for interactive config
-	AttachmentRateLimitDelay time.Duration // Temporary, for interactive config
+	MaxRetries   int
+	DryRun       bool
+	Verbose      bool
+	ResumeFrom   int
+	ProgressFile string
+	UserMapping  map[int]int
 }
 
 type FilesystemConfig struct {

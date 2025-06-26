@@ -149,7 +149,10 @@ func (r *InteractiveRunner) selectNewCategories(cfg *config.Config) error {
 	}
 
 	nodeID := 0
-	fmt.Sscanf(selectedCategory.ID, "%d", &nodeID)
+	_, err = fmt.Sscanf(selectedCategory.ID, "%d", &nodeID)
+	if err != nil {
+		return fmt.Errorf("failed to parse category ID '%s': %w", selectedCategory.ID, err)
+	}
 	cfg.GitHub.XenForoNodeID = nodeID
 
 	// Fetch GitHub categories

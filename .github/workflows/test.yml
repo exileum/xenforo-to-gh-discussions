@@ -119,7 +119,6 @@ jobs:
       - name: Upload full coverage
         uses: codecov/codecov-action@v5
         with:
-          file: ./coverage/coverage.out
           flags: full
 
   build:
@@ -144,9 +143,10 @@ jobs:
 
       - name: Test binary dry-run (should fail config validation)
         run: |
-          if ./build/xenforo-to-gh-discussions --dry-run --non-interactive 2>&1 | grep -q "configuration validation failed"; then
-            echo "✓ Configuration validation working correctly"
-          else
+          set -o pipefail
+          if ! ./build/xenforo-to-gh-discussions --dry-run --non-interactive 2>&1 | tee /dev/stderr | grep -q "configuration validation failed"; then
             echo "✗ Configuration validation not working as expected"
             exit 1
+          else
+            echo "✓ Configuration validation working correctly"
           fi

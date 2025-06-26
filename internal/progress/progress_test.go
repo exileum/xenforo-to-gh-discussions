@@ -1,28 +1,28 @@
 package progress
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/exileum/xenforo-to-gh-discussions/internal/xenforo"
 )
 
-func TestProgressTracker(t *testing.T) {
-	// Create temporary file for testing
-	tempDir, err := os.MkdirTemp("", "progress-test-*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempDir)
-
+// newTestTracker creates a new tracker for testing with a temp file
+func newTestTracker(t *testing.T) (*Tracker, string) {
+	t.Helper()
+	tempDir := t.TempDir()
 	progressFile := filepath.Join(tempDir, "test_progress.json")
 
-	// Create new tracker
 	tracker, err := NewTracker(progressFile, false)
 	if err != nil {
 		t.Fatalf("Failed to create tracker: %v", err)
 	}
+
+	return tracker, progressFile
+}
+
+func TestProgressTracker(t *testing.T) {
+	tracker, progressFile := newTestTracker(t)
 
 	// Test initial state
 	prog := tracker.GetProgress()
@@ -31,7 +31,7 @@ func TestProgressTracker(t *testing.T) {
 	}
 
 	// Test marking completed
-	err = tracker.MarkCompleted(123)
+	err := tracker.MarkCompleted(123)
 	if err != nil {
 		t.Errorf("Failed to mark thread as completed: %v", err)
 	}
@@ -52,7 +52,7 @@ func TestProgressTracker(t *testing.T) {
 		t.Error("Thread 456 should be marked as failed")
 	}
 
-	// Test persistence by creating new tracker
+	// Test persistence by creating a new tracker
 	tracker2, err := NewTracker(progressFile, false)
 	if err != nil {
 		t.Fatalf("Failed to create second tracker: %v", err)
@@ -65,18 +65,7 @@ func TestProgressTracker(t *testing.T) {
 }
 
 func TestFilterCompletedThreads(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "filter-test-*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempDir)
-
-	progressFile := filepath.Join(tempDir, "test_progress.json")
-
-	tracker, err := NewTracker(progressFile, false)
-	if err != nil {
-		t.Fatalf("Failed to create tracker: %v", err)
-	}
+	tracker, _ := newTestTracker(t)
 
 	// Mark some threads as completed
 	if err := tracker.MarkCompleted(1); err != nil {
@@ -109,18 +98,7 @@ func TestFilterCompletedThreads(t *testing.T) {
 }
 
 func TestMarkCompletedDuplicatePrevention(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "duplicate-test-*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempDir)
-
-	progressFile := filepath.Join(tempDir, "test_progress.json")
-
-	tracker, err := NewTracker(progressFile, false)
-	if err != nil {
-		t.Fatalf("Failed to create tracker: %v", err)
-	}
+	tracker, _ := newTestTracker(t)
 
 	// Mark thread 1 as completed multiple times
 	if err := tracker.MarkCompleted(1); err != nil {
@@ -147,18 +125,7 @@ func TestMarkCompletedDuplicatePrevention(t *testing.T) {
 }
 
 func TestMarkFailedDuplicatePrevention(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "duplicate-failed-test-*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempDir)
-
-	progressFile := filepath.Join(tempDir, "test_progress.json")
-
-	tracker, err := NewTracker(progressFile, false)
-	if err != nil {
-		t.Fatalf("Failed to create tracker: %v", err)
-	}
+	tracker, _ := newTestTracker(t)
 
 	// Mark thread 2 as failed multiple times
 	if err := tracker.MarkFailed(2); err != nil {

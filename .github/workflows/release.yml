@@ -157,6 +157,8 @@ jobs:
           tag_name: ${{ steps.version.outputs.VERSION }}
           name: Release ${{ steps.version.outputs.VERSION }}
           body: |
+            <p align="center"><img src=".github/images/logo.png" width="250" alt="XenForo to GitHub Discussions Migration Tool" /></p>
+
             # XenForo to GitHub Discussions Migration Tool ${{ steps.version.outputs.VERSION }}
 
             ${{ steps.release_notes.outputs.CHANGELOG }}

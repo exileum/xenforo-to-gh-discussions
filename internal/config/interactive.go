@@ -232,28 +232,52 @@ func InteractiveConfig() *Config {
 
 	// XenForo Configuration
 	fmt.Println("XenForo Configuration:")
-	cfg.XenForo.APIURL = PromptString("API URL", getEnvOrDefault("XENFORO_API_URL", "https://your-forum.com/api"))
+	// XenForo credential validation with retry loop
+	const maxRetries = 3
+	var categories []SelectOption
+	var err error
 
-	// For API Key, check if environment variable exists
-	apiKeyEnv := os.Getenv("XENFORO_API_KEY")
-	if apiKeyEnv != "" {
-		cfg.XenForo.APIKey = apiKeyEnv
-		fmt.Printf("API Key: ********** (from environment)\n")
-	} else {
-		cfg.XenForo.APIKey = PromptPassword("API Key")
-	}
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		if attempt == 1 {
+			// First attempt: collect initial credentials
+			cfg.XenForo.APIURL = PromptString("API URL", getEnvOrDefault("XENFORO_API_URL", "https://your-forum.com/api"))
 
-	defaultAPIUser := getEnvIntOrDefault("XENFORO_API_USER", 1)
-	cfg.XenForo.APIUser = strconv.Itoa(PromptInt("API User", defaultAPIUser))
+			// For API Key, check if environment variable exists
+			apiKeyEnv := os.Getenv("XENFORO_API_KEY")
+			if apiKeyEnv != "" {
+				cfg.XenForo.APIKey = apiKeyEnv
+				fmt.Printf("API Key: ********** (from environment)\n")
+			} else {
+				cfg.XenForo.APIKey = PromptPassword("API Key")
+			}
 
-	// Validate XenForo credentials immediately
-	fmt.Print("Validating XenForo credentials... ")
-	categories, err := ValidateXenForoAuth(cfg.XenForo.APIURL, cfg.XenForo.APIKey, cfg.XenForo.APIUser)
-	if err != nil {
+			defaultAPIUser := getEnvIntOrDefault("XENFORO_API_USER", 1)
+			cfg.XenForo.APIUser = strconv.Itoa(PromptInt("API User", defaultAPIUser))
+		} else {
+			// Retry attempts: re-prompt for credentials
+			fmt.Printf("\nRetry attempt %d of %d\n", attempt, maxRetries)
+			fmt.Println("Please check your credentials and try again:")
+
+			cfg.XenForo.APIURL = PromptString("API URL", cfg.XenForo.APIURL)
+			cfg.XenForo.APIKey = PromptPassword("API Key")
+			cfg.XenForo.APIUser = strconv.Itoa(PromptInt("API User", 1))
+		}
+
+		// Validate XenForo credentials
+		fmt.Print("Validating XenForo credentials... ")
+		categories, err = ValidateXenForoAuth(cfg.XenForo.APIURL, cfg.XenForo.APIKey, cfg.XenForo.APIUser)
+		if err == nil {
+			fmt.Println("✓ Connected successfully")
+			break
+		}
+
 		fmt.Printf("✗ %v\n", err)
-		os.Exit(1)
+
+		if attempt == maxRetries {
+			fmt.Printf("\nMaximum retry attempts (%d) reached. Exiting.\n", maxRetries)
+			os.Exit(1)
+		}
 	}
-	fmt.Println("✓ Connected successfully")
 
 	// Select XenForo category
 	fmt.Printf("\nFetching XenForo categories... ")
@@ -308,13 +332,13 @@ func InteractiveConfig() *Config {
 	fmt.Println("\nMigration Settings:")
 	cfg.Migration.MaxRetries = PromptInt("Max Retries", getEnvIntOrDefault("MAX_RETRIES", 3))
 	cfg.Migration.ProgressFile = fmt.Sprintf("migration_progress_node%d.json", cfg.GitHub.XenForoNodeID)
-	cfg.Migration.AttachmentsDir = PromptString("Attachments Directory", getEnvOrDefault("ATTACHMENTS_DIR", "./attachments"))
-	cfg.Migration.AttachmentRateLimitDelay = PromptDuration("Attachment Rate Limit Delay", getEnvDurationOrDefault("ATTACHMENT_RATE_LIMIT_DELAY", 500*time.Millisecond))
+
+	// Filesystem Settings
+	cfg.Filesystem.AttachmentsDir = PromptString("Attachments Directory", getEnvOrDefault("ATTACHMENTS_DIR", "./attachments"))
+	cfg.Filesystem.AttachmentRateLimitDelay = PromptDuration("Attachment Rate Limit Delay", getEnvDurationOrDefault("ATTACHMENT_RATE_LIMIT_DELAY", 500*time.Millisecond))
 
 	// Set other defaults
 	cfg.Migration.UserMapping = make(map[int]int)
-	cfg.Filesystem.AttachmentsDir = cfg.Migration.AttachmentsDir
-	cfg.Filesystem.AttachmentRateLimitDelay = cfg.Migration.AttachmentRateLimitDelay
 
 	return cfg
 }
@@ -341,8 +365,8 @@ func ValidateXenForoAuth(apiURL, apiKey string, userID string) ([]SelectOption, 
 		// Only include forum type nodes that are displayed in lists
 		if node.NodeTypeID == "Forum" && node.DisplayInList {
 			threadInfo := ""
-			if node.ThreadCount > 0 {
-				threadInfo = fmt.Sprintf("(%d threads)", node.ThreadCount)
+			if node.ThreadCount != nil && *node.ThreadCount > 0 {
+				threadInfo = fmt.Sprintf("(%d threads)", *node.ThreadCount)
 			}
 			categories = append(categories, SelectOption{
 				ID:   strconv.Itoa(node.NodeID),

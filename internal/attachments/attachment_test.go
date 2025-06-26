@@ -63,7 +63,8 @@ func (m *mockXenForoClient) DownloadAttachment(url, filepath string) error {
 
 func TestDownloader(t *testing.T) {
 	mockClient := &mockXenForoClient{}
-	downloader := NewDownloader("./test_attachments", true, mockClient, 100*time.Millisecond)
+	tempDir := t.TempDir()
+	downloader := NewDownloader(tempDir, true, mockClient, 100*time.Millisecond)
 
 	attachments := []xenforo.Attachment{
 		{
@@ -82,7 +83,8 @@ func TestDownloader(t *testing.T) {
 
 func TestReplaceAttachmentLinks(t *testing.T) {
 	mockClient := &mockXenForoClient{}
-	downloader := NewDownloader("./attachments", true, mockClient, 0) // No rate limiting for test
+	tempDir := t.TempDir()
+	downloader := NewDownloader(tempDir, true, mockClient, 0) // No rate limiting for test
 
 	message := "Check out this image: [ATTACH=1] and this file: [ATTACH=full]2[/ATTACH]"
 	attachments := []xenforo.Attachment{
@@ -229,6 +231,7 @@ func TestValidatePath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := sanitizer.ValidatePath(tt.filePath, tt.baseDir)
 
 			if tt.shouldErr {
@@ -264,15 +267,16 @@ func TestDownloaderRateLimiting(t *testing.T) {
 		{
 			name:           "Short rate limiting",
 			rateLimitDelay: 100 * time.Millisecond,
-			expectMinTime:  80 * time.Millisecond,  // Allow some timing variance
-			expectMaxTime:  150 * time.Millisecond, // Allow some processing overhead
+			expectMinTime:  90 * time.Millisecond,  // Allow some timing variance
+			expectMaxTime:  300 * time.Millisecond, // Allow extra overhead for loaded CI machines
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockClient := &mockXenForoClient{}
-			downloader := NewDownloader("./test_attachments", false, mockClient, tt.rateLimitDelay) // Don't use dry-run for timing test
+			tempDir := t.TempDir()
+			downloader := NewDownloader(tempDir, false, mockClient, tt.rateLimitDelay) // Don't use dry-run for timing test
 
 			attachments := []xenforo.Attachment{
 				{

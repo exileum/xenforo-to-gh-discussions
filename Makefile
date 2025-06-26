@@ -54,7 +54,7 @@ help: ## Show this help message
 build: ## Build the binary
 	@echo "$(CYAN)Building $(BINARY_NAME)...$(RESET)"
 	@mkdir -p $(BUILD_DIR)
-	$(GO) build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)$(BINARY_EXT) ./cmd/xenforo-to-gh-discussions
+	$(GO) build $(LDFLAGS_RELEASE) -o $(BUILD_DIR)/$(BINARY_NAME)$(BINARY_EXT) ./cmd/xenforo-to-gh-discussions
 	@echo "$(GREEN)Build complete: $(BUILD_DIR)/$(BINARY_NAME)$(BINARY_EXT)$(RESET)"
 
 .PHONY: dev

@@ -226,12 +226,12 @@ sequenceDiagram
 - **Discussion Creation**: First post becomes GitHub Discussion
 - **Comment Addition**: Subsequent posts become comments
 
-### 5. **Content Transformation Pipeline**
+### 6. **Content Transformation Pipeline**
 ```
 XenForo BB-code → Sanitize → Convert Formatting → Preserve Links → Add Metadata → GitHub Markdown
 ```
 
-### 6. **Interactive Error Handling**
+### 7. **Interactive Error Handling**
 > [!IMPORTANT]
 > Enhanced error handling with user interaction:
 > - **Interactive prompts**: When errors occur, the user can choose retry/skip/abort
@@ -239,7 +239,7 @@ XenForo BB-code → Sanitize → Convert Formatting → Preserve Links → Add M
 > - **Progress preservation**: All progress saved before exiting
 > - **Resume guidance**: Shows exact command to resume with `--resume-from`
 
-### 7. **Safety Features**
+### 8. **Safety Features**
 > [!WARNING]
 > Critical safety measures:
 > - **Dry-run mode**: Preview changes without making API calls

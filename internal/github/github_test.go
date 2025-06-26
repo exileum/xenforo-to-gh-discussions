@@ -14,7 +14,7 @@ func TestNewClient(t *testing.T) {
 	}{
 		{
 			name:      "Valid token",
-			token:     "ghp_1234567890abcdef1234567890abcdef12345678",
+			token:     "test_token_1234567890_fake_github_pat",
 			shouldErr: false,
 		},
 		{
@@ -37,7 +37,7 @@ func TestNewClient(t *testing.T) {
 		},
 		{
 			name:      "Valid but minimal length token",
-			token:     "ghp_12345678901234567890", // 24 chars, above minimum
+			token:     "test_minimal_token_12345", // 24 chars, above minimum
 			shouldErr: false,
 		},
 	}
@@ -71,7 +71,7 @@ func TestNewClient(t *testing.T) {
 }
 
 func TestClientRepositoryID(t *testing.T) {
-	client, err := NewClient("ghp_1234567890abcdef1234567890abcdef12345678")
+	client, err := NewClient("test_github_token_for_testing_only")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}

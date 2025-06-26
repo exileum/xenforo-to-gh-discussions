@@ -18,6 +18,11 @@ func main() {
 	)
 	flag.Parse()
 
+	// Validate command line flags
+	if *resumeFrom < 0 {
+		log.Fatalf("resume-from must be a positive value, got: %d", *resumeFrom)
+	}
+
 	// Load configuration
 	var cfg *config.Config
 	if *nonInteractive {

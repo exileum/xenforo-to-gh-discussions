@@ -171,10 +171,16 @@ func (c *Client) GetDryRunStats(nodeID int) (threadCount, postCount, attachmentC
 	}
 
 	// Since pagination doesn't include total, we need to estimate based on TotalPages
-	threadCount = result.Pagination.TotalPages * len(result.Threads)
-	if result.Pagination.CurrentPage == result.Pagination.TotalPages {
-		// On the last page, we have exact count
-		threadCount = (result.Pagination.TotalPages-1)*len(result.Threads) + len(result.Threads)
+	// For dry run stats, we'll use an estimate rather than fetching all pages
+	if result.Pagination.TotalPages == 1 {
+		// If there's only one page, the count is exact
+		threadCount = len(result.Threads)
+	} else {
+		// For multiple pages, estimate assuming all pages except possibly the last are full
+		threadsPerPage := len(result.Threads)
+		// Conservative estimate: assume last page has at least 1 thread
+		// This avoids overestimating while still being reasonable
+		threadCount = (result.Pagination.TotalPages-1)*threadsPerPage + threadsPerPage/2
 	}
 
 	// For posts, we need to make an estimate
