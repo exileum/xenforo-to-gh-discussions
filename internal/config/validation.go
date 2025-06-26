@@ -104,6 +104,19 @@ func (c *Config) validateGitHub() error {
 		return fmt.Errorf("GitHub repository must be in format 'owner/repo'")
 	}
 
+	// Validate rate limiting configuration
+	if c.GitHub.RateLimitDelay < 0 {
+		return fmt.Errorf("GitHub rate limit delay cannot be negative")
+	}
+
+	if c.GitHub.MaxRetries < 0 {
+		return fmt.Errorf("GitHub max retries cannot be negative")
+	}
+
+	if c.GitHub.RetryBackoffMultiple <= 0 {
+		return fmt.Errorf("GitHub retry backoff multiple must be positive")
+	}
+
 	// Validate category configuration using shared logic
 	validator := &basicConfigValidator{}
 	if err := ValidateCategoryConfiguration(c, validator); err != nil {

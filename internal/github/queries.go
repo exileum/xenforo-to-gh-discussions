@@ -25,49 +25,59 @@ func (c *Client) GetRepositoryInfo(repo string) (*RepositoryInfo, error) {
 		return nil, fmt.Errorf("invalid repository format - expected 'owner/repo'")
 	}
 
-	var query struct {
-		Repository struct {
-			ID                    string
-			HasDiscussionsEnabled bool
-			DiscussionCategories  struct {
-				Nodes []struct {
-					ID   string
-					Name string
-				}
-			} `graphql:"discussionCategories(first: 100)"`
-		} `graphql:"repository(owner: $owner, name: $name)"`
-	}
+	var info *RepositoryInfo
 
-	variables := map[string]interface{}{
-		"owner": githubv4.String(parts[0]),
-		"name":  githubv4.String(parts[1]),
-	}
-
-	err := c.client.Query(context.Background(), &query, variables)
-	if err != nil {
-		return nil, fmt.Errorf("GitHub API query failed: %w", err)
-	}
-
-	if !query.Repository.HasDiscussionsEnabled {
-		return nil, fmt.Errorf("GitHub Discussions is not enabled for repository %s", repo)
-	}
-
-	categories := make([]Category, len(query.Repository.DiscussionCategories.Nodes))
-	for i, cat := range query.Repository.DiscussionCategories.Nodes {
-		categories[i] = Category{
-			ID:   cat.ID,
-			Name: cat.Name,
+	err := c.executeWithRetry(func() error {
+		var query struct {
+			Repository struct {
+				ID                    string
+				HasDiscussionsEnabled bool
+				DiscussionCategories  struct {
+					Nodes []struct {
+						ID   string
+						Name string
+					}
+				} `graphql:"discussionCategories(first: 100)"`
+			} `graphql:"repository(owner: $owner, name: $name)"`
 		}
-	}
 
-	info := &RepositoryInfo{
-		ID:                    query.Repository.ID,
-		HasDiscussionsEnabled: query.Repository.HasDiscussionsEnabled,
-		DiscussionCategories:  categories,
-	}
+		variables := map[string]interface{}{
+			"owner": githubv4.String(parts[0]),
+			"name":  githubv4.String(parts[1]),
+		}
 
-	c.repositoryID = info.ID
-	c.repositoryName = repo
+		err := c.client.Query(context.Background(), &query, variables)
+		if err != nil {
+			return fmt.Errorf("GitHub API query failed: %w", err)
+		}
+
+		if !query.Repository.HasDiscussionsEnabled {
+			return fmt.Errorf("GitHub Discussions is not enabled for repository %s", repo)
+		}
+
+		categories := make([]Category, len(query.Repository.DiscussionCategories.Nodes))
+		for i, cat := range query.Repository.DiscussionCategories.Nodes {
+			categories[i] = Category{
+				ID:   cat.ID,
+				Name: cat.Name,
+			}
+		}
+
+		info = &RepositoryInfo{
+			ID:                    query.Repository.ID,
+			HasDiscussionsEnabled: query.Repository.HasDiscussionsEnabled,
+			DiscussionCategories:  categories,
+		}
+
+		c.repositoryID = info.ID
+		c.repositoryName = repo
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
 
 	return info, nil
 }

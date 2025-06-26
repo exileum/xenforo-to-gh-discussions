@@ -3,6 +3,7 @@ package github
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestNewClient(t *testing.T) {
@@ -44,7 +45,7 @@ func TestNewClient(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client, err := NewClient(tt.token)
+			client, err := NewClient(tt.token, 1*time.Second, 3, 2)
 
 			if tt.shouldErr {
 				if err == nil {
@@ -71,7 +72,7 @@ func TestNewClient(t *testing.T) {
 }
 
 func TestClientRepositoryID(t *testing.T) {
-	client, err := NewClient("test_github_token_for_testing_only")
+	client, err := NewClient("test_github_token_for_testing_only", 1*time.Second, 3, 2)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}

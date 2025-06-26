@@ -113,6 +113,16 @@ func TestAtMentionConversion(t *testing.T) {
 			expected: "Contact user@example.com for help",
 		},
 		{
+			name:     "Purely numeric username should not be converted",
+			input:    "Check thread @123 for details",
+			expected: "Check thread @123 for details",
+		},
+		{
+			name:     "Complex email patterns should not be converted",
+			input:    "Reach out to test.user+tag@sub.example.co.uk",
+			expected: "Reach out to test.user+tag@sub.example.co.uk",
+		},
+		{
 			name:     "Mixed content",
 			input:    "Thanks @admin for [b]fixing[/b] the issue!",
 			expected: "Thanks **admin** for **fixing** the issue!",

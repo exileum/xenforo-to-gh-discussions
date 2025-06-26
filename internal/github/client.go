@@ -3,19 +3,38 @@ package github
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log"
 	"strings"
+	"time"
 
 	"github.com/shurcooL/githubv4"
 	"golang.org/x/oauth2"
 )
 
 type Client struct {
-	client         *githubv4.Client
-	repositoryID   string
-	repositoryName string
+	client               *githubv4.Client
+	repositoryID         string
+	repositoryName       string
+	rateLimitDelay       time.Duration
+	maxRetries           int
+	retryBackoffMultiple int
+	operationCount       int
+	rateLimitHits        int
 }
 
-func NewClient(token string) (*Client, error) {
+type RateLimitError struct {
+	ResetTime time.Time
+	Remaining int
+	Message   string
+}
+
+func (e *RateLimitError) Error() string {
+	return fmt.Sprintf("GitHub API rate limit exceeded: %s (remaining: %d, resets at %s)",
+		e.Message, e.Remaining, e.ResetTime.Format(time.RFC3339))
+}
+
+func NewClient(token string, rateLimitDelay time.Duration, maxRetries, retryBackoffMultiple int) (*Client, error) {
 	// Validate token parameter
 	if strings.TrimSpace(token) == "" {
 		return nil, errors.New("GitHub token cannot be empty")
@@ -43,9 +62,17 @@ func NewClient(token string) (*Client, error) {
 		return nil, errors.New("failed to create GitHub GraphQL client")
 	}
 
-	return &Client{
-		client: graphqlClient,
-	}, nil
+	client := &Client{
+		client:               graphqlClient,
+		rateLimitDelay:       rateLimitDelay,
+		maxRetries:           maxRetries,
+		retryBackoffMultiple: retryBackoffMultiple,
+	}
+
+	// Log rate limit configuration
+	client.logRateLimitStatus()
+
+	return client, nil
 }
 
 func (c *Client) SetRepositoryID(id string) {
@@ -62,4 +89,114 @@ func (c *Client) SetRepositoryName(name string) {
 
 func (c *Client) GetRepositoryName() string {
 	return c.repositoryName
+}
+
+// parseRateLimitFromError extracts rate limit information from GitHub API errors
+func (c *Client) parseRateLimitFromError(err error) (*RateLimitError, bool) {
+	if err == nil {
+		return nil, false
+	}
+
+	errStr := err.Error()
+
+	// Check if this is a rate limit error
+	if !strings.Contains(strings.ToLower(errStr), "rate limit") &&
+		!strings.Contains(strings.ToLower(errStr), "api rate limit exceeded") &&
+		!strings.Contains(strings.ToLower(errStr), "secondary rate limit") &&
+		!strings.Contains(strings.ToLower(errStr), "abuse detection") {
+		return nil, false
+	}
+
+	resetTime := time.Now().Add(1 * time.Hour) // Default to 1 hour if we can't parse
+
+	// Try to parse reset time from common GitHub API error patterns
+	if strings.Contains(errStr, "please retry your request after") {
+		// GitHub usually provides a specific time to retry
+		resetTime = time.Now().Add(60 * time.Minute) // Conservative default
+	} else if strings.Contains(strings.ToLower(errStr), "secondary rate limit") {
+		// Secondary rate limits typically reset faster
+		resetTime = time.Now().Add(10 * time.Minute)
+	}
+
+	rateLimitErr := &RateLimitError{
+		Message:   errStr,
+		Remaining: 0,
+		ResetTime: resetTime,
+	}
+
+	return rateLimitErr, true
+}
+
+// logRateLimitStatus logs current rate limit status if available
+func (c *Client) logRateLimitStatus() {
+	log.Printf("GitHub API: Using rate limit delay: %v, max retries: %d, backoff multiplier: %dx",
+		c.rateLimitDelay, c.maxRetries, c.retryBackoffMultiple)
+}
+
+// executeWithRetry executes a function with rate limit handling and exponential backoff
+func (c *Client) executeWithRetry(operation func() error) error {
+	var lastErr error
+	c.operationCount++
+
+	for attempt := 0; attempt <= c.maxRetries; attempt++ {
+		// Apply rate limit delay before each attempt (except the first)
+		if attempt > 0 {
+			backoffDuration := time.Duration(attempt*c.retryBackoffMultiple) * time.Second
+			log.Printf("GitHub API retry attempt %d/%d, waiting %v... (total ops: %d, rate limit hits: %d)",
+				attempt, c.maxRetries, backoffDuration, c.operationCount, c.rateLimitHits)
+			time.Sleep(backoffDuration)
+		} else if c.rateLimitDelay > 0 {
+			// Always apply base rate limit delay
+			time.Sleep(c.rateLimitDelay)
+		}
+
+		// Execute the operation
+		err := operation()
+		if err == nil {
+			// Success!
+			if attempt > 0 {
+				log.Printf("GitHub API operation succeeded after %d retries (total ops: %d)", attempt, c.operationCount)
+			}
+			return nil
+		}
+
+		lastErr = err
+
+		// Check if this is a rate limit error
+		if rateLimitErr, isRateLimit := c.parseRateLimitFromError(err); isRateLimit {
+			c.rateLimitHits++
+			log.Printf("GitHub API rate limit detected (#%d): %s", c.rateLimitHits, rateLimitErr.Error())
+
+			// If we've exhausted retries, return the rate limit error
+			if attempt >= c.maxRetries {
+				log.Printf("Maximum retries (%d) exceeded for GitHub API rate limit (total rate limit hits: %d)", c.maxRetries, c.rateLimitHits)
+				return rateLimitErr
+			}
+
+			// Calculate wait time until rate limit resets
+			waitTime := time.Until(rateLimitErr.ResetTime)
+			if waitTime > 0 && waitTime < 2*time.Hour { // Reasonable maximum wait time
+				log.Printf("Waiting %v for GitHub API rate limit to reset... (hit #%d)", waitTime, c.rateLimitHits)
+				time.Sleep(waitTime)
+			}
+
+			continue // Retry the operation
+		}
+
+		// If it's not a rate limit error, check if we should retry
+		// For now, we'll retry on any error, but this could be made more specific
+		if attempt >= c.maxRetries {
+			log.Printf("Maximum retries (%d) exceeded for GitHub API operation (total ops: %d)", c.maxRetries, c.operationCount)
+			break
+		}
+
+		log.Printf("GitHub API operation failed (attempt %d/%d): %v", attempt+1, c.maxRetries+1, err)
+	}
+
+	return fmt.Errorf("GitHub API operation failed after %d retries: %w", c.maxRetries, lastErr)
+}
+
+// GetStats returns operation statistics for monitoring
+func (c *Client) GetStats() (operationCount, rateLimitHits int) {
+	return c.operationCount, c.rateLimitHits
 }
