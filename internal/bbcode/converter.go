@@ -60,38 +60,51 @@ func (c *Converter) processCodeBlocks(input string) string {
 }
 
 func (c *Converter) processQuotes(input string) string {
-	// Handle quotes with attribution
-	input = regexp.MustCompile(`(?s)\[quote="([^,"]+)(?:,[^\]]+)?"\](.*?)\[/quote\]`).ReplaceAllStringFunc(input, func(match string) string {
-		parts := regexp.MustCompile(`(?s)\[quote="([^,"]+)(?:,[^\]]+)?"\](.*?)\[/quote\]`).FindStringSubmatch(match)
-		if len(parts) < 3 {
-			return match
-		}
-		author := parts[1]
-		content := parts[2]
-		lines := strings.Split(strings.TrimSpace(content), "\n")
-		quoted := "> **" + author + " said:**\n"
-		for _, line := range lines {
-			quoted += "> " + line + "\n"
-		}
-		return quoted
-	})
+	// Process quotes iteratively to handle nested quotes
+	result := input
+	maxIterations := 10 // Prevent infinite loops
 
-	// Handle simple quotes
-	input = regexp.MustCompile(`(?s)\[quote\](.*?)\[/quote\]`).ReplaceAllStringFunc(input, func(match string) string {
-		parts := regexp.MustCompile(`(?s)\[quote\](.*?)\[/quote\]`).FindStringSubmatch(match)
-		if len(parts) < 2 {
-			return match
-		}
-		content := parts[1]
-		lines := strings.Split(strings.TrimSpace(content), "\n")
-		quoted := ""
-		for _, line := range lines {
-			quoted += "> " + line + "\n"
-		}
-		return quoted
-	})
+	for i := 0; i < maxIterations; i++ {
+		oldResult := result
 
-	return input
+		// Handle quotes with attribution first
+		result = regexp.MustCompile(`(?s)\[quote="([^,"]+)(?:,[^\]]+)?"\](.*?)\[/quote\]`).ReplaceAllStringFunc(result, func(match string) string {
+			parts := regexp.MustCompile(`(?s)\[quote="([^,"]+)(?:,[^\]]+)?"\](.*?)\[/quote\]`).FindStringSubmatch(match)
+			if len(parts) < 3 {
+				return match
+			}
+			author := parts[1]
+			content := parts[2]
+			lines := strings.Split(strings.TrimSpace(content), "\n")
+			quoted := "> **" + author + " said:**\n"
+			for _, line := range lines {
+				quoted += "> " + line + "\n"
+			}
+			return quoted
+		})
+
+		// Handle simple quotes
+		result = regexp.MustCompile(`(?s)\[quote\](.*?)\[/quote\]`).ReplaceAllStringFunc(result, func(match string) string {
+			parts := regexp.MustCompile(`(?s)\[quote\](.*?)\[/quote\]`).FindStringSubmatch(match)
+			if len(parts) < 2 {
+				return match
+			}
+			content := parts[1]
+			lines := strings.Split(strings.TrimSpace(content), "\n")
+			quoted := ""
+			for _, line := range lines {
+				quoted += "> " + line + "\n"
+			}
+			return quoted
+		})
+
+		// If no changes were made, we're done
+		if result == oldResult {
+			break
+		}
+	}
+
+	return result
 }
 
 func (c *Converter) processFormattingTag(input, pattern, openTag, closeTag string) string {

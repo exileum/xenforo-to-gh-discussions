@@ -3,6 +3,7 @@ package bbcode
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -66,7 +67,7 @@ func (p *MessageProcessor) FormatMessage(username string, postDate int64, thread
 	}
 
 	formatted := fmt.Sprintf(`---
-Author: %s
+Author: **%s**
 Posted: %s
 Original Thread ID: %d
 ---
@@ -77,5 +78,39 @@ Original Thread ID: %d
 }
 
 func (p *MessageProcessor) ProcessContent(content string) string {
-	return p.converter.ToMarkdown(content)
+	result := p.converter.ToMarkdown(content)
+
+	// Convert @username mentions to **username** to avoid GitHub user mentions
+	result = p.convertAtMentions(result)
+
+	return result
+}
+
+// convertAtMentions converts @username patterns to **username** bold format
+func (p *MessageProcessor) convertAtMentions(content string) string {
+	// Match @username patterns (alphanumeric, underscore, hyphen)
+	// Simple approach: match @word_boundary to avoid matching emails
+	re := regexp.MustCompile(`@([a-zA-Z0-9_-]+)\b`)
+
+	// Check if it's not part of an email by ensuring no . before or after
+	result := re.ReplaceAllStringFunc(content, func(match string) string {
+		// Find the match position
+		parts := re.FindStringSubmatch(match)
+		if len(parts) < 2 {
+			return match
+		}
+		username := parts[1]
+
+		// Simple heuristic: if the @ is preceded by alphanumeric, it's likely an email
+		idx := strings.Index(content, match)
+		if idx > 0 && (content[idx-1] >= 'a' && content[idx-1] <= 'z' ||
+			content[idx-1] >= 'A' && content[idx-1] <= 'Z' ||
+			content[idx-1] >= '0' && content[idx-1] <= '9') {
+			return match // Keep as-is (likely email)
+		}
+
+		return "**" + username + "**"
+	})
+
+	return result
 }
