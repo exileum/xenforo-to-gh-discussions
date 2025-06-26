@@ -7,20 +7,22 @@ type Thread struct {
 	Username    string `json:"username"`
 	PostDate    int64  `json:"post_date"`
 	FirstPostID int    `json:"first_post_id"`
+	ReplyCount  int    `json:"reply_count"`
 }
 
 type Post struct {
-	PostID   int    `json:"post_id"`
-	ThreadID int    `json:"thread_id"`
-	Username string `json:"username"`
-	PostDate int64  `json:"post_date"`
-	Message  string `json:"message"`
+	PostID      int          `json:"post_id"`
+	ThreadID    int          `json:"thread_id"`
+	Username    string       `json:"username"`
+	PostDate    int64        `json:"post_date"`
+	Message     string       `json:"message"`
+	Attachments []Attachment `json:"Attachments,omitempty"`
 }
 
 type Attachment struct {
 	AttachmentID int    `json:"attachment_id"`
 	Filename     string `json:"filename"`
-	ViewURL      string `json:"view_url"`
+	DirectURL    string `json:"direct_url"`
 }
 
 type ThreadsResponse struct {
@@ -37,10 +39,6 @@ type PostsResponse struct {
 		CurrentPage int `json:"current_page"`
 		TotalPages  int `json:"total_pages"`
 	} `json:"pagination"`
-}
-
-type AttachmentsResponse struct {
-	Attachments []Attachment `json:"attachments"`
 }
 
 type Node struct {

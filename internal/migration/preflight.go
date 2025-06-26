@@ -93,7 +93,7 @@ func (p *PreflightChecker) checkGitHubAPI() error {
 		return fmt.Errorf("GitHub API check failed: %w", err)
 	}
 
-	if !info.DiscussionsEnabled {
+	if !info.HasDiscussionsEnabled {
 		return fmt.Errorf("GitHub Discussions is not enabled for repository %s", p.config.GitHub.Repository)
 	}
 

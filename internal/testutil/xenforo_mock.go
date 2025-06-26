@@ -9,8 +9,7 @@ import (
 type XenForoClient struct {
 	TestConnectionFunc     func() error
 	GetThreadsFunc         func(nodeID int) ([]xenforo.Thread, error)
-	GetPostsFunc           func(threadID int) ([]xenforo.Post, error)
-	GetAttachmentsFunc     func(threadID int) ([]xenforo.Attachment, error)
+	GetPostsFunc           func(thread xenforo.Thread) ([]xenforo.Post, error)
 	DownloadAttachmentFunc func(url, filepath string) error
 }
 
@@ -28,18 +27,11 @@ func (m *XenForoClient) GetThreads(nodeID int) ([]xenforo.Thread, error) {
 	return nil, errors.New("GetThreadsFunc not set - test must explicitly set mock behavior")
 }
 
-func (m *XenForoClient) GetPosts(threadID int) ([]xenforo.Post, error) {
+func (m *XenForoClient) GetPosts(thread xenforo.Thread) ([]xenforo.Post, error) {
 	if m.GetPostsFunc != nil {
-		return m.GetPostsFunc(threadID)
+		return m.GetPostsFunc(thread)
 	}
 	return nil, errors.New("GetPostsFunc not set - test must explicitly set mock behavior")
-}
-
-func (m *XenForoClient) GetAttachments(threadID int) ([]xenforo.Attachment, error) {
-	if m.GetAttachmentsFunc != nil {
-		return m.GetAttachmentsFunc(threadID)
-	}
-	return nil, errors.New("GetAttachmentsFunc not set - test must explicitly set mock behavior")
 }
 
 func (m *XenForoClient) DownloadAttachment(url, filepath string) error {

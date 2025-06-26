@@ -9,9 +9,9 @@ import (
 )
 
 type RepositoryInfo struct {
-	ID                   string
-	DiscussionsEnabled   bool
-	DiscussionCategories []Category
+	ID                    string
+	HasDiscussionsEnabled bool
+	DiscussionCategories  []Category
 }
 
 type Category struct {
@@ -27,9 +27,9 @@ func (c *Client) GetRepositoryInfo(repo string) (*RepositoryInfo, error) {
 
 	var query struct {
 		Repository struct {
-			ID                   string
-			DiscussionsEnabled   bool
-			DiscussionCategories struct {
+			ID                    string
+			HasDiscussionsEnabled bool
+			DiscussionCategories  struct {
 				Nodes []struct {
 					ID   string
 					Name string
@@ -48,7 +48,7 @@ func (c *Client) GetRepositoryInfo(repo string) (*RepositoryInfo, error) {
 		return nil, fmt.Errorf("GitHub API query failed: %w", err)
 	}
 
-	if !query.Repository.DiscussionsEnabled {
+	if !query.Repository.HasDiscussionsEnabled {
 		return nil, fmt.Errorf("GitHub Discussions is not enabled for repository %s", repo)
 	}
 
@@ -61,9 +61,9 @@ func (c *Client) GetRepositoryInfo(repo string) (*RepositoryInfo, error) {
 	}
 
 	info := &RepositoryInfo{
-		ID:                   query.Repository.ID,
-		DiscussionsEnabled:   query.Repository.DiscussionsEnabled,
-		DiscussionCategories: categories,
+		ID:                    query.Repository.ID,
+		HasDiscussionsEnabled: query.Repository.HasDiscussionsEnabled,
+		DiscussionCategories:  categories,
 	}
 
 	c.repositoryID = info.ID

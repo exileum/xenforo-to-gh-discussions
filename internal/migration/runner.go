@@ -69,30 +69,26 @@ func (r *Runner) RunMigration() error {
 }
 
 func (r *Runner) processThread(thread xenforo.Thread) error {
-	// Only process threads from the selected category
-	if thread.NodeID != r.config.GitHub.XenForoNodeID {
-		return nil // Skip threads from other categories
-	}
-
 	// Use the single configured category ID
 	categoryID := r.config.GitHub.GitHubCategoryID
 
 	// Get posts for thread
-	posts, err := r.xenforoClient.GetPosts(thread.ThreadID)
+	posts, err := r.xenforoClient.GetPosts(thread)
 	if err != nil {
 		return err
 	}
+	log.Printf("  ✓ Found %d posts for thread", len(posts))
 
-	// Get attachments for thread
-	threadAttachments, err := r.xenforoClient.GetAttachments(thread.ThreadID)
-	if err != nil {
-		log.Printf("⚠ Warning: Failed to fetch attachments: %v", err)
-		// Continue anyway, just without attachments
+	// Collect all attachments from all posts
+	var threadAttachments []xenforo.Attachment
+	for _, post := range posts {
+		threadAttachments = append(threadAttachments, post.Attachments...)
 	}
 
 	// Download attachments
 	if len(threadAttachments) > 0 {
-		log.Printf("  Downloading %d attachments...", len(threadAttachments))
+		log.Printf("  ✓ Found %d attachments across all posts", len(threadAttachments))
+		log.Printf("  Downloading attachments...")
 		if err := r.downloader.DownloadAttachments(threadAttachments); err != nil {
 			log.Printf("✗ Warning: Failed to download attachments for thread %d: %v", thread.ThreadID, err)
 			// Continue processing without attachments - the thread content can still be migrated

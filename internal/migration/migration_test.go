@@ -274,8 +274,8 @@ func TestAttachmentDownloadErrorHandling(t *testing.T) {
 			// Set up attachments
 			if tt.hasAttachments {
 				migrator.attachments = []xenforo.Attachment{
-					{AttachmentID: 1, Filename: "test.jpg", ViewURL: "https://example.com/1"},
-					{AttachmentID: 2, Filename: "doc.pdf", ViewURL: "https://example.com/2"},
+					{AttachmentID: 1, Filename: "test.jpg", DirectURL: "https://example.com/1"},
+					{AttachmentID: 2, Filename: "doc.pdf", DirectURL: "https://example.com/2"},
 				}
 			}
 
