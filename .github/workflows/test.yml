@@ -146,7 +146,7 @@ jobs:
           # Capture output and exit code separately
           output=$(./build/xenforo-to-gh-discussions --dry-run --non-interactive 2>&1) || exit_code=$?
           echo "$output"
-          
+
           # Check that binary failed (non-zero exit) and output contains expected message
           if [ ${exit_code:-0} -ne 0 ] && echo "$output" | grep -q "configuration validation failed"; then
             echo "✓ Configuration validation working correctly"
