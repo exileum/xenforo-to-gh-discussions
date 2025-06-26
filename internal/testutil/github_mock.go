@@ -29,8 +29,8 @@ func (m *GitHubClient) GetRepositoryInfo(repo string) (*github.RepositoryInfo, e
 		return m.GetRepositoryInfoFunc(repo)
 	}
 	return &github.RepositoryInfo{
-		ID:                 "test_repo_id",
-		DiscussionsEnabled: true,
+		ID:                    "test_repo_id",
+		HasDiscussionsEnabled: true,
 		DiscussionCategories: []github.Category{
 			{ID: "DIC_kwDOtest123", Name: "General"},
 		},

@@ -35,9 +35,11 @@ func (r *InteractiveRunner) Run(cfg *config.Config) error {
 					log.Printf("Dry run failed: %v", err)
 					continue
 				}
-				if !config.PromptBool("Proceed with actual migration?", false) {
-					continue
-				}
+			}
+
+			// Always ask for confirmation before starting actual migration
+			if !config.PromptBool("Start the actual migration now?", false) {
+				continue
 			}
 		}
 

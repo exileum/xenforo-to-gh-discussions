@@ -35,11 +35,8 @@ func (c *Client) GetThreads(nodeID int) ([]Thread, error) {
 	for {
 		resp, err := c.retryableRequest(func() (*resty.Response, error) {
 			return c.addHeaders(c.client.R()).
-				SetQueryParams(map[string]string{
-					"page":    fmt.Sprintf("%d", page),
-					"node_id": fmt.Sprintf("%d", nodeID),
-				}).
-				Get(c.baseURL + "/threads")
+				SetQueryParam("page", fmt.Sprintf("%d", page)).
+				Get(fmt.Sprintf("%s/forums/%d/threads", c.baseURL, nodeID))
 		})
 
 		if err != nil {
@@ -68,15 +65,49 @@ func (c *Client) GetThreads(nodeID int) ([]Thread, error) {
 	return threads, nil
 }
 
-func (c *Client) GetPosts(threadID int) ([]Post, error) {
+func (c *Client) GetPosts(thread Thread) ([]Post, error) {
 	var posts []Post
-	page := 1
 
-	for {
+	// Calculate total posts: reply_count + 1 (original post)
+	totalPosts := thread.ReplyCount + 1
+
+	// Start with first page to determine posts per page
+	firstPageResp, err := c.retryableRequest(func() (*resty.Response, error) {
+		return c.addHeaders(c.client.R()).
+			SetQueryParam("page", "1").
+			Get(fmt.Sprintf("%s/threads/%d/posts", c.baseURL, thread.ThreadID))
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if firstPageResp.StatusCode() != 200 {
+		return nil, fmt.Errorf("API error: %s", firstPageResp.String())
+	}
+
+	var firstResult PostsResponse
+	if err := json.Unmarshal(firstPageResp.Body(), &firstResult); err != nil {
+		return nil, err
+	}
+
+	posts = append(posts, firstResult.Posts...)
+	postsPerPage := len(firstResult.Posts)
+
+	// If we got all posts on the first page, we're done
+	if len(posts) >= totalPosts {
+		return posts, nil
+	}
+
+	// Calculate how many more pages we need
+	totalPages := (totalPosts + postsPerPage - 1) / postsPerPage // Ceiling division
+
+	// Fetch remaining pages
+	for page := 2; page <= totalPages; page++ {
 		resp, err := c.retryableRequest(func() (*resty.Response, error) {
 			return c.addHeaders(c.client.R()).
 				SetQueryParam("page", fmt.Sprintf("%d", page)).
-				Get(fmt.Sprintf("%s/threads/%d/posts", c.baseURL, threadID))
+				Get(fmt.Sprintf("%s/threads/%d/posts", c.baseURL, thread.ThreadID))
 		})
 
 		if err != nil {
@@ -94,37 +125,15 @@ func (c *Client) GetPosts(threadID int) ([]Post, error) {
 
 		posts = append(posts, result.Posts...)
 
-		if result.Pagination.CurrentPage >= result.Pagination.TotalPages {
+		// Break if we got fewer posts than expected (last page)
+		if len(result.Posts) < postsPerPage {
 			break
 		}
 
-		page++
 		time.Sleep(1 * time.Second)
 	}
 
 	return posts, nil
-}
-
-func (c *Client) GetAttachments(threadID int) ([]Attachment, error) {
-	resp, err := c.retryableRequest(func() (*resty.Response, error) {
-		return c.addHeaders(c.client.R()).
-			Get(fmt.Sprintf("%s/threads/%d/attachments", c.baseURL, threadID))
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode() != 200 {
-		return nil, fmt.Errorf("API error (attachments): %s", resp.String())
-	}
-
-	var result AttachmentsResponse
-	if err := json.Unmarshal(resp.Body(), &result); err != nil {
-		return nil, err
-	}
-
-	return result.Attachments, nil
 }
 
 func (c *Client) DownloadAttachment(url, filepath string) error {
@@ -145,63 +154,32 @@ func (c *Client) DownloadAttachment(url, filepath string) error {
 	return nil
 }
 
-// GetDryRunStats returns statistics for a node without fetching all data
+// GetDryRunStats returns statistics for a node by fetching actual data
 func (c *Client) GetDryRunStats(nodeID int) (threadCount, postCount, attachmentCount, userCount int, err error) {
-	// Get first page of threads to get total count from pagination
-	resp, err := c.retryableRequest(func() (*resty.Response, error) {
-		return c.addHeaders(c.client.R()).
-			SetQueryParams(map[string]string{
-				"page":    "1",
-				"node_id": fmt.Sprintf("%d", nodeID),
-			}).
-			Get(c.baseURL + "/threads")
-	})
-
+	// Get all threads from the node using our working GetThreads method
+	threads, err := c.GetThreads(nodeID)
 	if err != nil {
-		return 0, 0, 0, 0, fmt.Errorf("failed to get thread statistics: %w", err)
+		return 0, 0, 0, 0, fmt.Errorf("failed to get threads: %w", err)
 	}
 
-	if resp.StatusCode() != 200 {
-		return 0, 0, 0, 0, fmt.Errorf("API error: %s", resp.String())
-	}
+	// Count threads directly
+	threadCount = len(threads)
 
-	var result ThreadsResponse
-	if err := json.Unmarshal(resp.Body(), &result); err != nil {
-		return 0, 0, 0, 0, fmt.Errorf("failed to parse threads response: %w", err)
-	}
-
-	// Since pagination doesn't include total, we need to estimate based on TotalPages
-	// For dry run stats, we'll use an estimate rather than fetching all pages
-	if result.Pagination.TotalPages == 1 {
-		// If there's only one page, the count is exact
-		threadCount = len(result.Threads)
-	} else {
-		// For multiple pages, estimate assuming all pages except possibly the last are full
-		threadsPerPage := len(result.Threads)
-		// Conservative estimate: assume last page has at least 1 thread
-		// This avoids overestimating while still being reasonable
-		threadCount = (result.Pagination.TotalPages-1)*threadsPerPage + threadsPerPage/2
-	}
-
-	// For posts, we need to make an estimate
-	// Since we can't get post count from thread data, estimate 5 posts per thread on average
-	postCount = threadCount * 5
-
-	// For attachments, estimate 20% of posts have attachments
-	attachmentCount = postCount / 5
-
-	// For users, collect unique usernames from first page
+	// Calculate accurate post count using reply_count from each thread
+	postCount = 0
 	users := make(map[string]bool)
-	for _, thread := range result.Threads {
+	for _, thread := range threads {
+		// Each thread has reply_count replies + 1 original post
+		postCount += thread.ReplyCount + 1
 		users[thread.Username] = true
 	}
 
-	// Estimate total users based on sample
-	if len(result.Threads) > 0 {
-		uniqueUsersOnPage := len(users)
-		estimatedUsersPerPage := float64(uniqueUsersOnPage) * 0.8 // 80% unique rate estimate
-		userCount = int(float64(result.Pagination.TotalPages) * estimatedUsersPerPage)
-	}
+	// For attachments, estimate 10% of posts have attachments on average
+	// This is a conservative estimate since we'd need to fetch all posts to get exact count
+	attachmentCount = postCount / 10
+
+	// Count unique users from thread authors
+	userCount = len(users)
 
 	return threadCount, postCount, attachmentCount, userCount, nil
 }

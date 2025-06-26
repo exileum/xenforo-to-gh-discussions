@@ -291,6 +291,7 @@ func InteractiveConfig() *Config {
 
 	nodeID, _ := strconv.Atoi(selectedCategory.ID)
 	cfg.GitHub.XenForoNodeID = nodeID
+	cfg.XenForo.NodeID = nodeID
 
 	// GitHub Configuration
 	fmt.Println("\nGitHub Configuration:")

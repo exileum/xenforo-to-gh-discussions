@@ -75,7 +75,7 @@ func (d *Downloader) downloadSingle(attachment xenforo.Attachment) error {
 	}
 
 	// Download file
-	if err := d.client.DownloadAttachment(attachment.ViewURL, filePath); err != nil {
+	if err := d.client.DownloadAttachment(attachment.DirectURL, filePath); err != nil {
 		return err
 	}
 

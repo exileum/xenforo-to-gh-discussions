@@ -70,7 +70,7 @@ func TestDownloader(t *testing.T) {
 		{
 			AttachmentID: 1,
 			Filename:     "test.png",
-			ViewURL:      "https://example.com/1",
+			DirectURL:    "https://example.com/1",
 		},
 	}
 
@@ -91,12 +91,12 @@ func TestReplaceAttachmentLinks(t *testing.T) {
 		{
 			AttachmentID: 1,
 			Filename:     "image.png",
-			ViewURL:      "https://example.com/1",
+			DirectURL:    "https://example.com/1",
 		},
 		{
 			AttachmentID: 2,
 			Filename:     "document.pdf",
-			ViewURL:      "https://example.com/2",
+			DirectURL:    "https://example.com/2",
 		},
 	}
 
@@ -282,7 +282,7 @@ func TestDownloaderRateLimiting(t *testing.T) {
 				{
 					AttachmentID: 1,
 					Filename:     "test.png",
-					ViewURL:      "https://example.com/1",
+					DirectURL:    "https://example.com/1",
 				},
 			}
 
