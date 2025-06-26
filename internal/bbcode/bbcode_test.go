@@ -47,8 +47,8 @@ func TestBBCodeConverter(t *testing.T) {
 		},
 		{
 			name:     "Complex BB-code",
-			input:    "This is [b]bold[/b] and [i]italic[/i] text with [url=http://example.com]a link[/url].",
-			expected: "This is **bold** and *italic* text with [a link](http://example.com).",
+			input:    "This is [b]bold[/b] and [i]italic[/i] text with [url=https://example.com]a link[/url].",
+			expected: "This is **bold** and *italic* text with [a link](https://example.com).",
 		},
 	}
 

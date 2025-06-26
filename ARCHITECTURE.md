@@ -227,7 +227,7 @@ sequenceDiagram
 - **Comment Addition**: Subsequent posts become comments
 
 ### 6. **Content Transformation Pipeline**
-```
+```text
 XenForo BB-code → Sanitize → Convert Formatting → Preserve Links → Add Metadata → GitHub Markdown
 ```
 

@@ -39,11 +39,6 @@ func TestXenForoClientTimeout(t *testing.T) {
 	if chainedClient != client {
 		t.Error("SetTimeout should return the same client instance for method chaining")
 	}
-
-	// Verify the client still works after timeout modification
-	if client == nil {
-		t.Error("Client should still be valid after timeout modification")
-	}
 }
 
 func TestXenForoClientConfiguration(t *testing.T) {

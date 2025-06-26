@@ -74,7 +74,7 @@ func TestDownloader(t *testing.T) {
 		},
 	}
 
-	// Test in dry-run mode (should not actually download)
+	// Test in dry-run mode (should not download)
 	err := downloader.DownloadAttachments(attachments)
 	if err != nil {
 		t.Errorf("Dry run should not return error: %v", err)
@@ -102,12 +102,12 @@ func TestReplaceAttachmentLinks(t *testing.T) {
 
 	result := downloader.ReplaceAttachmentLinks(message, attachments)
 
-	// Should replace image with markdown image syntax
+	// Should replace image with Markdown image syntax
 	if !strings.Contains(result, "![image.png](./png/attachment_1_image.png)") {
 		t.Error("Should replace image attachment with markdown image syntax")
 	}
 
-	// Should replace document with markdown link syntax
+	// Should replace a document with Markdown link syntax
 	if !strings.Contains(result, "[document.pdf](./pdf/attachment_2_document.pdf)") {
 		t.Error("Should replace document attachment with markdown link syntax")
 	}
