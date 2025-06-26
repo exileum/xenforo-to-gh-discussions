@@ -88,29 +88,48 @@ func (p *MessageProcessor) ProcessContent(content string) string {
 
 // convertAtMentions converts @username patterns to **username** bold format
 func (p *MessageProcessor) convertAtMentions(content string) string {
-	// Match @username patterns (alphanumeric, underscore, hyphen)
-	// Simple approach: match @word_boundary to avoid matching emails
-	re := regexp.MustCompile(`@([a-zA-Z0-9_-]+)\b`)
-
-	// Check if it's not part of an email by ensuring no . before or after
-	result := re.ReplaceAllStringFunc(content, func(match string) string {
-		// Find the match position
-		parts := re.FindStringSubmatch(match)
+	// Enhanced regex: require at least one alphabetic character and use word boundaries
+	// This prevents purely numeric usernames and ensures proper boundaries
+	mentionRe := regexp.MustCompile(`@([a-zA-Z0-9_-]*[a-zA-Z]+[a-zA-Z0-9_-]*)\b`)
+	
+	// More comprehensive email pattern to avoid false positives
+	emailRe := regexp.MustCompile(`[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}`)
+	
+	// Find all email matches first to exclude them
+	emailMatches := emailRe.FindAllStringIndex(content, -1)
+	
+	// Use ReplaceAllStringFunc with position tracking for efficiency
+	result := mentionRe.ReplaceAllStringFunc(content, func(match string) string {
+		// Get the match position using FindStringIndex
+		matchIndices := mentionRe.FindAllStringIndex(content, -1)
+		var matchStart, matchEnd int
+		
+		// Find the current match position by comparing the match string
+		for _, indices := range matchIndices {
+			if content[indices[0]:indices[1]] == match {
+				matchStart, matchEnd = indices[0], indices[1]
+				break
+			}
+		}
+		
+		// Check if this @ symbol is part of an email by checking overlap with email matches
+		for _, emailIndex := range emailMatches {
+			emailStart, emailEnd := emailIndex[0], emailIndex[1]
+			// If the @ symbol overlaps with an email, skip conversion
+			if matchStart >= emailStart && matchEnd <= emailEnd {
+				return match
+			}
+		}
+		
+		// Extract username from the match
+		parts := mentionRe.FindStringSubmatch(match)
 		if len(parts) < 2 {
 			return match
 		}
 		username := parts[1]
-
-		// Simple heuristic: if the @ is preceded by alphanumeric, it's likely an email
-		idx := strings.Index(content, match)
-		if idx > 0 && (content[idx-1] >= 'a' && content[idx-1] <= 'z' ||
-			content[idx-1] >= 'A' && content[idx-1] <= 'Z' ||
-			content[idx-1] >= '0' && content[idx-1] <= '9') {
-			return match // Keep as-is (likely email)
-		}
-
+		
 		return "**" + username + "**"
 	})
-
+	
 	return result
 }
