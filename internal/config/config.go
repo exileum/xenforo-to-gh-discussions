@@ -21,11 +21,14 @@ type XenForoConfig struct {
 }
 
 type GitHubConfig struct {
-	Token            string
-	Repository       string
-	Categories       map[int]string // Kept for backward compatibility
-	XenForoNodeID    int            // Single source category
-	GitHubCategoryID string         // Single target category
+	Token                string
+	Repository           string
+	Categories           map[int]string // Kept for backward compatibility
+	XenForoNodeID        int            // Single source category
+	GitHubCategoryID     string         // Single target category
+	RateLimitDelay       time.Duration  // Delay between API calls
+	MaxRetries           int            // Maximum retries for rate limited requests
+	RetryBackoffMultiple int            // Multiplier for exponential backoff (seconds)
 }
 
 type MigrationConfig struct {
@@ -51,11 +54,14 @@ func New() *Config {
 			NodeID:  getEnvIntOrDefault("XENFORO_NODE_ID", 1),
 		},
 		GitHub: GitHubConfig{
-			Token:            getEnvOrDefault("GITHUB_TOKEN", "your_github_token"),
-			Repository:       getEnvOrDefault("GITHUB_REPO", "your_username/your_repo"),
-			Categories:       make(map[int]string),
-			XenForoNodeID:    getEnvIntOrDefault("XENFORO_NODE_ID", 1),
-			GitHubCategoryID: getEnvOrDefault("GITHUB_CATEGORY_ID", "DIC_kwDOxxxxxxxx"),
+			Token:                getEnvOrDefault("GITHUB_TOKEN", "your_github_token"),
+			Repository:           getEnvOrDefault("GITHUB_REPO", "your_username/your_repo"),
+			Categories:           make(map[int]string),
+			XenForoNodeID:        getEnvIntOrDefault("XENFORO_NODE_ID", 1),
+			GitHubCategoryID:     getEnvOrDefault("GITHUB_CATEGORY_ID", "DIC_kwDOxxxxxxxx"),
+			RateLimitDelay:       getEnvDurationOrDefault("GITHUB_RATE_LIMIT_DELAY", 1*time.Second),
+			MaxRetries:           getEnvIntOrDefault("GITHUB_MAX_RETRIES", 5),
+			RetryBackoffMultiple: getEnvIntOrDefault("GITHUB_RETRY_BACKOFF_MULTIPLE", 2),
 		},
 		Migration: MigrationConfig{
 			MaxRetries:   getEnvIntOrDefault("MAX_RETRIES", 3),

@@ -358,6 +358,11 @@ export GITHUB_TOKEN="your_github_token"
 export GITHUB_REPO="owner/repository"
 export GITHUB_CATEGORY_ID="DIC_kwDOxxxxxxxx" # GitHub Discussion category ID to migrate to
 
+# GitHub API Rate Limiting (Optional)
+export GITHUB_RATE_LIMIT_DELAY="1s" # Delay between GitHub API calls
+export GITHUB_MAX_RETRIES="5" # Maximum retries for rate limited requests
+export GITHUB_RETRY_BACKOFF_MULTIPLE="2" # Exponential backoff multiplier (seconds)
+
 # Migration Settings
 export MAX_RETRIES="3"
 export ATTACHMENTS_DIR="./attachments"

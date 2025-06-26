@@ -329,6 +329,12 @@ func InteractiveConfig() *Config {
 
 	cfg.GitHub.GitHubCategoryID = selectedGHCategory.ID
 
+	// GitHub API Rate Limiting Settings
+	fmt.Println("\nGitHub API Rate Limiting (optional - press Enter for defaults):")
+	cfg.GitHub.RateLimitDelay = PromptDuration("API call delay", getEnvDurationOrDefault("GITHUB_RATE_LIMIT_DELAY", 1*time.Second))
+	cfg.GitHub.MaxRetries = PromptInt("Max retries for rate limited requests", getEnvIntOrDefault("GITHUB_MAX_RETRIES", 5))
+	cfg.GitHub.RetryBackoffMultiple = PromptInt("Retry backoff multiplier (seconds)", getEnvIntOrDefault("GITHUB_RETRY_BACKOFF_MULTIPLE", 2))
+
 	// Migration Settings
 	fmt.Println("\nMigration Settings:")
 	cfg.Migration.MaxRetries = PromptInt("Max Retries", getEnvIntOrDefault("MAX_RETRIES", 3))
@@ -340,6 +346,7 @@ func InteractiveConfig() *Config {
 
 	// Set other defaults
 	cfg.Migration.UserMapping = make(map[int]int)
+	cfg.GitHub.Categories = make(map[int]string)
 
 	return cfg
 }
@@ -383,7 +390,7 @@ func ValidateXenForoAuth(apiURL, apiKey string, userID string) ([]SelectOption, 
 // ValidateGitHubAuth validates GitHub token and returns available discussion categories
 func ValidateGitHubAuth(token, repository string) ([]SelectOption, error) {
 	// Create a temporary client for validation
-	client, err := github.NewClient(token)
+	client, err := github.NewClient(token, 1*time.Second, 3, 2)
 	if err != nil {
 		return nil, err
 	}
