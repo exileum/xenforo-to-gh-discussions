@@ -91,19 +91,19 @@ func (p *MessageProcessor) convertAtMentions(content string) string {
 	// Enhanced regex: require at least one alphabetic character and use word boundaries
 	// This prevents purely numeric usernames and ensures proper boundaries
 	mentionRe := regexp.MustCompile(`@([a-zA-Z0-9_-]*[a-zA-Z]+[a-zA-Z0-9_-]*)\b`)
-	
+
 	// More comprehensive email pattern to avoid false positives
 	emailRe := regexp.MustCompile(`[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}`)
-	
+
 	// Find all email matches first to exclude them
 	emailMatches := emailRe.FindAllStringIndex(content, -1)
-	
+
 	// Use ReplaceAllStringFunc with position tracking for efficiency
 	result := mentionRe.ReplaceAllStringFunc(content, func(match string) string {
 		// Get the match position using FindStringIndex
 		matchIndices := mentionRe.FindAllStringIndex(content, -1)
 		var matchStart, matchEnd int
-		
+
 		// Find the current match position by comparing the match string
 		for _, indices := range matchIndices {
 			if content[indices[0]:indices[1]] == match {
@@ -111,7 +111,7 @@ func (p *MessageProcessor) convertAtMentions(content string) string {
 				break
 			}
 		}
-		
+
 		// Check if this @ symbol is part of an email by checking overlap with email matches
 		for _, emailIndex := range emailMatches {
 			emailStart, emailEnd := emailIndex[0], emailIndex[1]
@@ -120,16 +120,16 @@ func (p *MessageProcessor) convertAtMentions(content string) string {
 				return match
 			}
 		}
-		
+
 		// Extract username from the match
 		parts := mentionRe.FindStringSubmatch(match)
 		if len(parts) < 2 {
 			return match
 		}
 		username := parts[1]
-		
+
 		return "**" + username + "**"
 	})
-	
+
 	return result
 }

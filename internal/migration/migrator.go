@@ -37,7 +37,12 @@ func (m *Migrator) Run() error {
 	var githubClient *github.Client
 	if !m.config.Migration.DryRun {
 		var err error
-		githubClient, err = github.NewClient(m.config.GitHub.Token)
+		githubClient, err = github.NewClient(
+			m.config.GitHub.Token,
+			m.config.GitHub.RateLimitDelay,
+			m.config.GitHub.MaxRetries,
+			m.config.GitHub.RetryBackoffMultiple,
+		)
 		if err != nil {
 			return fmt.Errorf("failed to initialize GitHub client: %w", err)
 		}
