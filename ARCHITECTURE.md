@@ -66,12 +66,12 @@ test/                          # Test organization following Go best practices
 ```mermaid
 sequenceDiagram
     participant User
-    participant Interactive as Interactive Config
-    participant App as Migration Tool
-    participant Progress as Progress File
-    participant XF as XenForo API
-    participant FS as File System
-    participant GH as GitHub API
+    participant Interactive as "Interactive Config"
+    participant App as "Migration Tool"
+    participant Progress as "Progress File"
+    participant XF as "XenForo API"
+    participant FS as "File System"
+    participant GH as "GitHub API"
 
     User->>App: Start migration
     
