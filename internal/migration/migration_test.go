@@ -1,4 +1,4 @@
-package unit
+package migration
 
 import (
 	"errors"
@@ -65,7 +65,7 @@ func (tm *testMigrator) runThreads(threads []xenforo.Thread) error {
 		}
 
 		if err := tm.tracker.MarkCompleted(thread.ThreadID); err != nil {
-			// This would be logged in real code, but continue processing
+			// This would be logged in real code
 		}
 	}
 	return nil
@@ -213,7 +213,7 @@ func (tm *testMigratorWithDownloader) processThreadWithDownloads(thread xenforo.
 	// Simulate the download logic from runner.go
 	if len(tm.attachments) > 0 {
 		if err := tm.downloader.DownloadAttachments(tm.attachments); err != nil {
-			// This would be logged in real code but processing continues
+			// This would be logged in real code
 		}
 	}
 

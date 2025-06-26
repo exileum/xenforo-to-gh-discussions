@@ -1,4 +1,4 @@
-package mocks
+package testutil
 
 import (
 	"github.com/exileum/xenforo-to-gh-discussions/internal/github"

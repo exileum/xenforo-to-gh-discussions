@@ -1,16 +1,15 @@
-package unit
+package attachments
 
 import (
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/exileum/xenforo-to-gh-discussions/internal/attachments"
 	"github.com/exileum/xenforo-to-gh-discussions/internal/xenforo"
 )
 
 func TestFileSanitizer(t *testing.T) {
-	sanitizer := attachments.NewFileSanitizer()
+	sanitizer := NewFileSanitizer()
 
 	tests := []struct {
 		name     string
@@ -64,7 +63,8 @@ func (m *mockXenForoClient) DownloadAttachment(url, filepath string) error {
 
 func TestDownloader(t *testing.T) {
 	mockClient := &mockXenForoClient{}
-	downloader := attachments.NewDownloader("./test_attachments", true, mockClient, 100*time.Millisecond)
+	tempDir := t.TempDir()
+	downloader := NewDownloader(tempDir, true, mockClient, 100*time.Millisecond)
 
 	attachments := []xenforo.Attachment{
 		{
@@ -74,7 +74,7 @@ func TestDownloader(t *testing.T) {
 		},
 	}
 
-	// Test in dry-run mode (should not actually download)
+	// Test in dry-run mode (should not download)
 	err := downloader.DownloadAttachments(attachments)
 	if err != nil {
 		t.Errorf("Dry run should not return error: %v", err)
@@ -83,7 +83,8 @@ func TestDownloader(t *testing.T) {
 
 func TestReplaceAttachmentLinks(t *testing.T) {
 	mockClient := &mockXenForoClient{}
-	downloader := attachments.NewDownloader("./attachments", true, mockClient, 0) // No rate limiting for test
+	tempDir := t.TempDir()
+	downloader := NewDownloader(tempDir, true, mockClient, 0) // No rate limiting for test
 
 	message := "Check out this image: [ATTACH=1] and this file: [ATTACH=full]2[/ATTACH]"
 	attachments := []xenforo.Attachment{
@@ -101,19 +102,19 @@ func TestReplaceAttachmentLinks(t *testing.T) {
 
 	result := downloader.ReplaceAttachmentLinks(message, attachments)
 
-	// Should replace image with markdown image syntax
+	// Should replace image with Markdown image syntax
 	if !strings.Contains(result, "![image.png](./png/attachment_1_image.png)") {
 		t.Error("Should replace image attachment with markdown image syntax")
 	}
 
-	// Should replace document with markdown link syntax
+	// Should replace a document with Markdown link syntax
 	if !strings.Contains(result, "[document.pdf](./pdf/attachment_2_document.pdf)") {
 		t.Error("Should replace document attachment with markdown link syntax")
 	}
 }
 
 func TestValidatePath(t *testing.T) {
-	sanitizer := attachments.NewFileSanitizer()
+	sanitizer := NewFileSanitizer()
 
 	tests := []struct {
 		name      string
@@ -230,6 +231,7 @@ func TestValidatePath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := sanitizer.ValidatePath(tt.filePath, tt.baseDir)
 
 			if tt.shouldErr {
@@ -265,15 +267,16 @@ func TestDownloaderRateLimiting(t *testing.T) {
 		{
 			name:           "Short rate limiting",
 			rateLimitDelay: 100 * time.Millisecond,
-			expectMinTime:  80 * time.Millisecond,  // Allow some timing variance
-			expectMaxTime:  150 * time.Millisecond, // Allow some processing overhead
+			expectMinTime:  90 * time.Millisecond,  // Allow some timing variance
+			expectMaxTime:  300 * time.Millisecond, // Allow extra overhead for loaded CI machines
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockClient := &mockXenForoClient{}
-			downloader := attachments.NewDownloader("./test_attachments", false, mockClient, tt.rateLimitDelay) // Don't use dry-run for timing test
+			tempDir := t.TempDir()
+			downloader := NewDownloader(tempDir, false, mockClient, tt.rateLimitDelay) // Don't use dry-run for timing test
 
 			attachments := []xenforo.Attachment{
 				{

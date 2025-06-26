@@ -22,7 +22,7 @@ ARG BUILD_TIME
 ARG COMMIT_HASH
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags "-w -s -X main.version=${VERSION} -X main.buildTime=${BUILD_TIME:-$(date -u '+%Y-%m-%d_%H:%M:%S')} -X main.commitHash=${COMMIT_HASH:-unknown}" \
-    -o xenforo-to-gh-discussions .
+    -o xenforo-to-gh-discussions ./cmd/xenforo-to-gh-discussions
 
 # Final stage
 FROM alpine:latest

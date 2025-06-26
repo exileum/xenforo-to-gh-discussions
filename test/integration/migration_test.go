@@ -6,20 +6,18 @@ import (
 	"testing"
 
 	"github.com/exileum/xenforo-to-gh-discussions/internal/config"
-	"github.com/exileum/xenforo-to-gh-discussions/internal/github"
 	"github.com/exileum/xenforo-to-gh-discussions/internal/migration"
-	"github.com/exileum/xenforo-to-gh-discussions/test/mocks"
 )
 
 func TestMigrationIntegration(t *testing.T) {
-	// Create temporary directory for test
+	// Create a temporary directory for test
 	tempDir, err := os.MkdirTemp("", "migration-integration-*")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(tempDir)
 
-	// Create test configuration
+	// Create a test configuration
 	cfg := &config.Config{
 		XenForo: config.XenForoConfig{
 			APIURL:  "https://test-forum.com/api",
@@ -91,16 +89,8 @@ func TestEndToEndWithMocks(t *testing.T) {
 		},
 	}
 
-	// Create mock clients
-	xenforoMock := &mocks.XenForoClient{}
-	githubMock := &mocks.GitHubClient{}
-
-	// Set up mock behaviors
+	// Track test state
 	var createdDiscussions []string
-	githubMock.CreateDiscussionFunc = func(title, body, categoryID string) (*github.DiscussionResult, error) {
-		createdDiscussions = append(createdDiscussions, title)
-		return &github.DiscussionResult{ID: "test_id", Number: len(createdDiscussions)}, nil
-	}
 
 	// Update to valid category mapping for testing
 	cfg.GitHub.Categories = map[int]string{1: "DIC_kwDOtest123"}
@@ -108,11 +98,6 @@ func TestEndToEndWithMocks(t *testing.T) {
 	// Verify configuration is valid for dry-run
 	if err := cfg.Validate(); err != nil {
 		t.Errorf("Configuration should be valid: %v", err)
-	}
-
-	// Verify mock clients are properly initialized
-	if xenforoMock == nil || githubMock == nil {
-		t.Error("Mock clients should be initialized")
 	}
 
 	// Verify that discussion creation tracking works

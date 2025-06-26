@@ -1,10 +1,8 @@
-package unit
+package xenforo
 
 import (
 	"testing"
 	"time"
-
-	"github.com/exileum/xenforo-to-gh-discussions/internal/xenforo"
 )
 
 func TestNewXenForoClient(t *testing.T) {
@@ -13,7 +11,7 @@ func TestNewXenForoClient(t *testing.T) {
 	apiUser := "1"
 	maxRetries := 3
 
-	client := xenforo.NewClient(baseURL, apiKey, apiUser, maxRetries)
+	client := NewClient(baseURL, apiKey, apiUser, maxRetries)
 
 	if client == nil {
 		t.Fatal("Expected client to be created, got nil")
@@ -26,7 +24,7 @@ func TestNewXenForoClient(t *testing.T) {
 
 func TestXenForoClientTimeout(t *testing.T) {
 	// Test that the client handles timeouts appropriately
-	client := xenforo.NewClient("https://example.com/api", "test-key", "1", 1)
+	client := NewClient("https://example.com/api", "test-key", "1", 1)
 
 	if client == nil {
 		t.Fatal("Expected client to be created, got nil")
@@ -40,11 +38,6 @@ func TestXenForoClientTimeout(t *testing.T) {
 
 	if chainedClient != client {
 		t.Error("SetTimeout should return the same client instance for method chaining")
-	}
-
-	// Verify the client still works after timeout modification
-	if client == nil {
-		t.Error("Client should still be valid after timeout modification")
 	}
 }
 
@@ -81,7 +74,7 @@ func TestXenForoClientConfiguration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client := xenforo.NewClient(tt.baseURL, tt.apiKey, tt.apiUser, tt.maxRetries)
+			client := NewClient(tt.baseURL, tt.apiKey, tt.apiUser, tt.maxRetries)
 
 			if client == nil {
 				t.Errorf("Expected client to be created for %s", tt.name)

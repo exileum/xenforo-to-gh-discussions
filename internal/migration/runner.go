@@ -35,8 +35,8 @@ func NewRunner(cfg *config.Config, xenforoClient *xenforo.Client, githubClient *
 
 func (r *Runner) RunMigration() error {
 	// Get threads from XenForo
-	log.Printf("Fetching threads from forum node %d...", r.config.XenForo.NodeID)
-	threads, err := r.xenforoClient.GetThreads(r.config.XenForo.NodeID)
+	log.Printf("Fetching threads from forum node %d...", r.config.GitHub.XenForoNodeID)
+	threads, err := r.xenforoClient.GetThreads(r.config.GitHub.XenForoNodeID)
 	if err != nil {
 		return err
 	}
@@ -69,12 +69,13 @@ func (r *Runner) RunMigration() error {
 }
 
 func (r *Runner) processThread(thread xenforo.Thread) error {
-	// Check if category mapping exists
-	categoryID, ok := r.config.GitHub.Categories[thread.NodeID]
-	if !ok {
-		log.Printf("✗ Skipped: no category mapping for node_id %d", thread.NodeID)
-		return nil
+	// Only process threads from the selected category
+	if thread.NodeID != r.config.GitHub.XenForoNodeID {
+		return nil // Skip threads from other categories
 	}
+
+	// Use the single configured category ID
+	categoryID := r.config.GitHub.GitHubCategoryID
 
 	// Get posts for thread
 	posts, err := r.xenforoClient.GetPosts(thread.ThreadID)
@@ -83,16 +84,16 @@ func (r *Runner) processThread(thread xenforo.Thread) error {
 	}
 
 	// Get attachments for thread
-	attachments, err := r.xenforoClient.GetAttachments(thread.ThreadID)
+	threadAttachments, err := r.xenforoClient.GetAttachments(thread.ThreadID)
 	if err != nil {
 		log.Printf("⚠ Warning: Failed to fetch attachments: %v", err)
 		// Continue anyway, just without attachments
 	}
 
 	// Download attachments
-	if len(attachments) > 0 {
-		log.Printf("  Downloading %d attachments...", len(attachments))
-		if err := r.downloader.DownloadAttachments(attachments); err != nil {
+	if len(threadAttachments) > 0 {
+		log.Printf("  Downloading %d attachments...", len(threadAttachments))
+		if err := r.downloader.DownloadAttachments(threadAttachments); err != nil {
 			log.Printf("✗ Warning: Failed to download attachments for thread %d: %v", thread.ThreadID, err)
 			// Continue processing without attachments - the thread content can still be migrated
 		}
@@ -103,11 +104,11 @@ func (r *Runner) processThread(thread xenforo.Thread) error {
 	discussionNumber := 0
 
 	for j, post := range posts {
-		// Convert BB-codes to Markdown
+		// Convert BB codes to Markdown
 		markdown := r.processor.ProcessContent(post.Message)
 
 		// Replace attachment links
-		markdown = r.downloader.ReplaceAttachmentLinks(markdown, attachments)
+		markdown = r.downloader.ReplaceAttachmentLinks(markdown, threadAttachments)
 
 		// Format message with metadata
 		body, err := r.processor.FormatMessage(post.Username, post.PostDate, thread.ThreadID, markdown)
@@ -117,7 +118,7 @@ func (r *Runner) processThread(thread xenforo.Thread) error {
 		}
 
 		if j == 0 {
-			// Create discussion from first post
+			// Create discussion from the first post
 			if r.config.Migration.DryRun {
 				log.Printf("  [DRY-RUN] Would create discussion: %s", thread.Title)
 				if r.config.Migration.Verbose {
@@ -133,7 +134,7 @@ func (r *Runner) processThread(thread xenforo.Thread) error {
 				log.Printf("✓ Created discussion #%d", discussionNumber)
 			}
 		} else {
-			// Add comment to discussion
+			// Add comment to the discussion
 			if r.config.Migration.DryRun {
 				log.Printf("  [DRY-RUN] Would add comment by %s", post.Username)
 				if r.config.Migration.Verbose {
