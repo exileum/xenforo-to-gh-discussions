@@ -19,8 +19,8 @@ type Thread struct {
 // IsValid validates the Thread struct and returns true if all required fields are valid.
 func (t *Thread) IsValid() bool {
 	return t.ThreadID > 0 &&
-		t.Title != "" &&
-		t.Username != "" &&
+		len(strings.TrimSpace(t.Title)) > 0 &&
+		len(strings.TrimSpace(t.Username)) > 0 &&
 		t.PostDate >= 0
 }
 
@@ -39,10 +39,8 @@ type Post struct {
 func (p *Post) IsValid() bool {
 	return p.PostID > 0 &&
 		p.ThreadID > 0 &&
-		p.Username != "" &&
+		len(strings.TrimSpace(p.Username)) > 0 &&
 		p.PostDate >= 0 &&
-		len(p.Message) > 0 &&
-		p.Message != "" &&
 		len(strings.TrimSpace(p.Message)) > 0
 }
 
@@ -98,8 +96,8 @@ type Node struct {
 // IsValid validates the Node struct and returns true if all required fields are valid.
 func (n *Node) IsValid() bool {
 	return n.NodeID > 0 &&
-		n.Title != "" &&
-		n.NodeTypeID != ""
+		len(strings.TrimSpace(n.Title)) > 0 &&
+		len(strings.TrimSpace(n.NodeTypeID)) > 0
 }
 
 type NodesResponse struct {
