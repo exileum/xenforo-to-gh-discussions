@@ -1,3 +1,6 @@
+// Package xenforo provides a client for interacting with XenForo forum APIs.
+// It handles authentication, data retrieval for threads and posts, pagination,
+// and provides dry-run capabilities for migration planning.
 package xenforo
 
 import (

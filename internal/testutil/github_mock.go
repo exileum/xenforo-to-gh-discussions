@@ -1,3 +1,6 @@
+// Package testutil provides mock implementations and test utilities for
+// the migration tool's testing infrastructure. It includes configurable
+// mocks for GitHub and XenForo clients with explicit function injection.
 package testutil
 
 import (
