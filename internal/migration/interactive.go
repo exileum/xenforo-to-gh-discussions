@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/exileum/xenforo-to-gh-discussions/internal/config"
 	"github.com/exileum/xenforo-to-gh-discussions/internal/progress"
@@ -175,8 +176,7 @@ func (r *InteractiveRunner) selectNewCategories(cfg *config.Config) error {
 		return err
 	}
 
-	nodeID := 0
-	_, err = fmt.Sscanf(selectedCategory.ID, "%d", &nodeID)
+	nodeID, err := strconv.Atoi(selectedCategory.ID)
 	if err != nil {
 		return fmt.Errorf("failed to parse category ID '%s': %w", selectedCategory.ID, err)
 	}
