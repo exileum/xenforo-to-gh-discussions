@@ -1,7 +1,6 @@
 package xenforo
 
 import (
-	"strings"
 	"testing"
 	"time"
 )
@@ -172,10 +171,7 @@ func TestThread_Validation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			isValid := tt.thread.ThreadID > 0 &&
-				tt.thread.Title != "" &&
-				tt.thread.Username != "" &&
-				tt.thread.PostDate >= 0
+			isValid := tt.thread.IsValid()
 
 			if isValid != tt.valid {
 				t.Errorf("Expected validity %v for %s, got %v", tt.valid, tt.name, isValid)
@@ -253,13 +249,7 @@ func TestPost_Validation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			isValid := tt.post.PostID > 0 &&
-				tt.post.ThreadID > 0 &&
-				tt.post.Username != "" &&
-				tt.post.PostDate >= 0 &&
-				len(tt.post.Message) > 0 &&
-				tt.post.Message != "" &&
-				len(strings.TrimSpace(tt.post.Message)) > 0
+			isValid := tt.post.IsValid()
 
 			if isValid != tt.valid {
 				t.Errorf("Expected validity %v for %s, got %v", tt.valid, tt.name, isValid)
@@ -328,16 +318,38 @@ func TestAttachment_Validation(t *testing.T) {
 			},
 			valid: false, // Should be considered invalid for security
 		},
+		{
+			name: "Filename with backslash path traversal",
+			attachment: Attachment{
+				AttachmentID: 1,
+				Filename:     "..\\..\\windows\\system32",
+				DirectURL:    "https://example.com/attachments/test.jpg",
+			},
+			valid: false,
+		},
+		{
+			name: "Filename with single dot slash",
+			attachment: Attachment{
+				AttachmentID: 1,
+				Filename:     "./config.ini",
+				DirectURL:    "https://example.com/attachments/test.jpg",
+			},
+			valid: true, // Single dot slash might be acceptable
+		},
+		{
+			name: "Filename with mixed path separators",
+			attachment: Attachment{
+				AttachmentID: 1,
+				Filename:     "..\\../etc/passwd",
+				DirectURL:    "https://example.com/attachments/test.jpg",
+			},
+			valid: false,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			isValid := tt.attachment.AttachmentID > 0 &&
-				tt.attachment.Filename != "" &&
-				tt.attachment.DirectURL != "" &&
-				!strings.Contains(tt.attachment.Filename, "..") && // Basic path traversal check
-				(strings.HasPrefix(tt.attachment.DirectURL, "http://") ||
-					strings.HasPrefix(tt.attachment.DirectURL, "https://"))
+			isValid := tt.attachment.IsValid()
 
 			if isValid != tt.valid {
 				t.Errorf("Expected validity %v for %s, got %v", tt.valid, tt.name, isValid)
@@ -420,9 +432,7 @@ func TestNode_Validation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			isValid := tt.node.NodeID > 0 &&
-				tt.node.Title != "" &&
-				tt.node.NodeTypeID != ""
+			isValid := tt.node.IsValid()
 
 			if isValid != tt.valid {
 				t.Errorf("Expected validity %v for %s, got %v", tt.valid, tt.name, isValid)

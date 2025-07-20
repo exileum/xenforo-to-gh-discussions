@@ -2,6 +2,7 @@ package migration
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -86,10 +87,10 @@ func TestMigrator_RunConfigValidation(t *testing.T) {
 			shouldErr: false,
 		},
 		{
-			name: "Invalid XenForo URL",
+			name: "Default placeholder XenForo URL",
 			config: &config.Config{
 				XenForo: config.XenForoConfig{
-					APIURL:  "https://your-forum.com/api", // Default placeholder
+					APIURL:  "https://your-forum.com/api", // Default placeholder that should fail validation
 					APIKey:  "test_key",
 					APIUser: "1",
 					NodeID:  1,
@@ -157,13 +158,13 @@ func TestMigrator_RunConfigValidation(t *testing.T) {
 			if tt.shouldErr {
 				if err == nil {
 					t.Errorf("Expected error but got none")
-				} else if tt.errMsg != "" && !containsString(err.Error(), tt.errMsg) {
+				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
 					t.Errorf("Expected error containing %q, got %q", tt.errMsg, err.Error())
 				}
 			} else {
 				// For valid configs, we expect the migrator to fail later due to mock setup
 				// but not during initial validation
-				if err != nil && containsString(err.Error(), "configuration validation failed") {
+				if err != nil && strings.Contains(err.Error(), "configuration validation failed") {
 					t.Errorf("Expected no validation error but got: %v", err)
 				}
 			}
@@ -253,22 +254,7 @@ func TestMigrator_RunDryRunMode(t *testing.T) {
 
 	// We expect an error because we're using dummy credentials,
 	// but it should not be a configuration validation error
-	if err != nil && containsString(err.Error(), "configuration validation failed") {
+	if err != nil && strings.Contains(err.Error(), "configuration validation failed") {
 		t.Errorf("Dry run mode should pass configuration validation: %v", err)
 	}
-}
-
-// Helper function to check if a string contains a substring
-func containsString(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
-		(len(s) > 0 && len(substr) > 0 && indexOf(s, substr) >= 0))
-}
-
-func indexOf(s, substr string) int {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return i
-		}
-	}
-	return -1
 }

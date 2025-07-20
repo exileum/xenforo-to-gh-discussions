@@ -102,10 +102,12 @@ func (c *Client) GetRepositoryID() string {
 	return c.repositoryID
 }
 
+// SetRepositoryName configures the repository name for logging purposes.
 func (c *Client) SetRepositoryName(name string) {
 	c.repositoryName = name
 }
 
+// GetRepositoryName returns the currently configured repository name.
 func (c *Client) GetRepositoryName() string {
 	return c.repositoryName
 }

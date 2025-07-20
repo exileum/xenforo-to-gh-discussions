@@ -1,5 +1,9 @@
 package xenforo
 
+import (
+	"strings"
+)
+
 // Thread represents a XenForo forum thread with metadata.
 // Contains thread identification, authoring information, and reply statistics.
 type Thread struct {
@@ -10,6 +14,14 @@ type Thread struct {
 	PostDate    int64  `json:"post_date"`     // Creation timestamp (Unix)
 	FirstPostID int    `json:"first_post_id"` // ID of the opening post
 	ReplyCount  int    `json:"reply_count"`   // Number of replies
+}
+
+// IsValid validates the Thread struct and returns true if all required fields are valid.
+func (t *Thread) IsValid() bool {
+	return t.ThreadID > 0 &&
+		t.Title != "" &&
+		t.Username != "" &&
+		t.PostDate >= 0
 }
 
 // Post represents an individual forum post within a thread.
@@ -23,12 +35,35 @@ type Post struct {
 	Attachments []Attachment `json:"Attachments,omitempty"` // File attachments
 }
 
+// IsValid validates the Post struct and returns true if all required fields are valid.
+func (p *Post) IsValid() bool {
+	return p.PostID > 0 &&
+		p.ThreadID > 0 &&
+		p.Username != "" &&
+		p.PostDate >= 0 &&
+		len(p.Message) > 0 &&
+		p.Message != "" &&
+		len(strings.TrimSpace(p.Message)) > 0
+}
+
 // Attachment represents a file attachment linked to a forum post.
 // Contains download information and metadata for file migration.
 type Attachment struct {
 	AttachmentID int    `json:"attachment_id"` // Unique attachment identifier
 	Filename     string `json:"filename"`      // Original filename
 	DirectURL    string `json:"direct_url"`    // Download URL
+}
+
+// IsValid validates the Attachment struct and returns true if all required fields are valid.
+// Includes security checks for path traversal attempts in filenames.
+func (a *Attachment) IsValid() bool {
+	return a.AttachmentID > 0 &&
+		a.Filename != "" &&
+		a.DirectURL != "" &&
+		!strings.Contains(a.Filename, "..") && // Basic path traversal check
+		!strings.Contains(a.Filename, "\\") && // Windows path traversal check
+		(strings.HasPrefix(a.DirectURL, "http://") ||
+			strings.HasPrefix(a.DirectURL, "https://"))
 }
 
 type ThreadsResponse struct {
@@ -58,6 +93,13 @@ type Node struct {
 	DisplayOrder  int     `json:"display_order"`              // Sort order
 	DisplayInList bool    `json:"display_in_list"`            // Visibility flag
 	ThreadCount   *int    `json:"discussion_count,omitempty"` // Thread count for forums
+}
+
+// IsValid validates the Node struct and returns true if all required fields are valid.
+func (n *Node) IsValid() bool {
+	return n.NodeID > 0 &&
+		n.Title != "" &&
+		n.NodeTypeID != ""
 }
 
 type NodesResponse struct {

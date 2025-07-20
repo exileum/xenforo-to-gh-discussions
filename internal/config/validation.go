@@ -6,15 +6,15 @@ import (
 	"strings"
 )
 
-// CategoryValidater defines the interface for validating GitHub category configurations
-type CategoryValidater interface {
+// CategoryValidator defines the interface for validating GitHub category configurations
+type CategoryValidator interface {
 	ValidateSingleCategory(nodeID int, categoryID string) error
 	ValidateMultiCategory(categories map[int]string) error
 	ValidateNoConfiguration() error
 }
 
 // ValidateCategoryConfiguration handles the common branching logic for category validation
-func ValidateCategoryConfiguration(config *Config, validator CategoryValidater) error {
+func ValidateCategoryConfiguration(config *Config, validator CategoryValidator) error {
 	if config.GitHub.XenForoNodeID > 0 && config.GitHub.GitHubCategoryID != "" {
 		return validator.ValidateSingleCategory(config.GitHub.XenForoNodeID, config.GitHub.GitHubCategoryID)
 	} else if len(config.GitHub.Categories) > 0 {

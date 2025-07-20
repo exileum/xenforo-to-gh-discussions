@@ -147,6 +147,22 @@ golangci-lint: ## Run golangci-lint (requires golangci-lint to be installed)
 		echo "$(YELLOW)golangci-lint not installed. Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest$(RESET)"; \
 	fi
 
+.PHONY: cyclo
+cyclo: ## Run cyclomatic complexity analysis (requires gocyclo to be installed)
+	@echo "$(CYAN)Running cyclomatic complexity analysis...$(RESET)"
+	@if command -v gocyclo > /dev/null 2>&1; then \
+		CYCLO_OUTPUT=$$(gocyclo -over 10 . 2>&1); \
+		if [ -n "$$CYCLO_OUTPUT" ]; then \
+			echo "$(YELLOW)Functions with cyclomatic complexity > 10:$(RESET)"; \
+			echo "$$CYCLO_OUTPUT"; \
+			echo "$(YELLOW)Consider refactoring complex functions$(RESET)"; \
+		else \
+			echo "$(GREEN)No functions with complexity > 10 found$(RESET)"; \
+		fi; \
+	else \
+		echo "$(YELLOW)gocyclo not installed. Install with: go install github.com/fzipp/gocyclo/cmd/gocyclo@latest$(RESET)"; \
+	fi
+
 ##@ Dependencies
 .PHONY: deps
 deps: ## Download and verify dependencies
@@ -183,7 +199,7 @@ build-all: ## Build for all platforms
 	@echo "$(GREEN)Cross-platform builds complete in $(DIST_DIR)/$(RESET)"
 
 .PHONY: release
-release: clean lint test build-all ## Create a release (clean, lint, test, build-all)
+release: clean lint cyclo test build-all ## Create a release (clean, lint, cyclo, test, build-all)
 	@echo "$(GREEN)Release build complete$(RESET)"
 
 .PHONY: package
@@ -211,7 +227,7 @@ version: ## Show version information
 	@echo "  Platform: $(GOOS)/$(GOARCH)"
 
 .PHONY: check
-check: lint test ## Run pre-commit checks (lint + test)
+check: lint cyclo test ## Run pre-commit checks (lint + cyclo + test)
 	@echo "$(GREEN)All checks passed - ready to commit!$(RESET)"
 
 .PHONY: run
