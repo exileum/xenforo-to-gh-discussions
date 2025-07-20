@@ -148,20 +148,11 @@ golangci-lint: ## Run golangci-lint (requires golangci-lint to be installed)
 	fi
 
 .PHONY: cyclo
-cyclo: ## Run cyclomatic complexity analysis (requires gocyclo to be installed)
+cyclo: ## Run cyclomatic complexity analysis and fail if any function > 10
 	@echo "$(CYAN)Running cyclomatic complexity analysis...$(RESET)"
-	@if command -v gocyclo > /dev/null 2>&1; then \
-		CYCLO_OUTPUT=$$(gocyclo -over 10 . 2>&1); \
-		if [ -n "$$CYCLO_OUTPUT" ]; then \
-			echo "$(YELLOW)Functions with cyclomatic complexity > 10:$(RESET)"; \
-			echo "$$CYCLO_OUTPUT"; \
-			echo "$(YELLOW)Consider refactoring complex functions$(RESET)"; \
-		else \
-			echo "$(GREEN)No functions with complexity > 10 found$(RESET)"; \
-		fi; \
-	else \
-		echo "$(YELLOW)gocyclo not installed. Install with: go install github.com/fzipp/gocyclo/cmd/gocyclo@latest$(RESET)"; \
-	fi
+	@command -v gocyclo > /dev/null || (echo "$(RED)gocyclo not installed. Install with: go install github.com/fzipp/gocyclo/cmd/gocyclo@latest$(RESET)" && exit 1)
+	@gocyclo -over 10 -ignore "vendor/|testdata/|mock|_test\.go$$" ./cmd ./internal || (echo "$(RED)Cyclomatic complexity check failed$(RESET)" && exit 1)
+	@echo "$(GREEN)Cyclomatic complexity check passed$(RESET)"
 
 ##@ Dependencies
 .PHONY: deps
