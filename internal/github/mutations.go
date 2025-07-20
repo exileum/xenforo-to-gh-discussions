@@ -44,7 +44,7 @@ func (c *Client) CreateDiscussion(ctx context.Context, title, body, categoryID s
 			CategoryID:   githubv4.ID(categoryID),
 		}
 
-		err := c.client.Mutate(context.Background(), &mutation, input, nil)
+		err := c.client.Mutate(ctx, &mutation, input, nil)
 		if err != nil {
 			return fmt.Errorf("failed to create discussion %q in category %q: %w", title, categoryID, err)
 		}
@@ -87,7 +87,7 @@ func (c *Client) AddComment(ctx context.Context, discussionID, body string) erro
 			Body:         githubv4.String(body),
 		}
 
-		err := c.client.Mutate(context.Background(), &mutation, input, nil)
+		err := c.client.Mutate(ctx, &mutation, input, nil)
 		if err != nil {
 			return fmt.Errorf("failed to add comment to discussion %q: %w", discussionID, err)
 		}
