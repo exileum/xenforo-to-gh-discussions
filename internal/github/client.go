@@ -44,6 +44,16 @@ func NewClient(token string, rateLimitDelay time.Duration, maxRetries, retryBack
 		return nil, errors.New("GitHub token appears to be invalid (too short)")
 	}
 
+	if rateLimitDelay < 0 {
+		return nil, errors.New("rate limit delay cannot be negative")
+	}
+	if maxRetries < 0 {
+		return nil, errors.New("max retries cannot be negative")
+	}
+	if retryBackoffMultiple < 1 {
+		return nil, errors.New("retry backoff multiple must be at least 1")
+	}
+
 	src := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: token},
 	)
