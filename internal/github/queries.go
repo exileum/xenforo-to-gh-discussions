@@ -19,7 +19,7 @@ type Category struct {
 	Name string
 }
 
-func (c *Client) GetRepositoryInfo(repo string) (*RepositoryInfo, error) {
+func (c *Client) GetRepositoryInfo(ctx context.Context, repo string) (*RepositoryInfo, error) {
 	parts := strings.Split(repo, "/")
 	if len(parts) != 2 {
 		return nil, fmt.Errorf("invalid repository format - expected 'owner/repo'")
@@ -27,7 +27,7 @@ func (c *Client) GetRepositoryInfo(repo string) (*RepositoryInfo, error) {
 
 	var info *RepositoryInfo
 
-	err := c.executeWithRetry(func() error {
+	err := c.executeWithRetry(ctx, func() error {
 		var query struct {
 			Repository struct {
 				ID                    string
@@ -82,13 +82,13 @@ func (c *Client) GetRepositoryInfo(repo string) (*RepositoryInfo, error) {
 	return info, nil
 }
 
-func (c *Client) ValidateCategoryMappings(categories map[int]string) error {
+func (c *Client) ValidateCategoryMappings(ctx context.Context, categories map[int]string) error {
 	// Ensure we have a repository name stored
 	if strings.TrimSpace(c.repositoryName) == "" {
 		return fmt.Errorf("repository name not set - call GetRepositoryInfo first")
 	}
 
-	info, err := c.GetRepositoryInfo(c.repositoryName)
+	info, err := c.GetRepositoryInfo(ctx, c.repositoryName)
 	if err != nil {
 		return fmt.Errorf("failed to validate category mappings: %w", err)
 	}

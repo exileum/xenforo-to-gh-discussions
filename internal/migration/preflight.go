@@ -1,6 +1,7 @@
 package migration
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -52,7 +53,7 @@ func NewPreflightChecker(cfg *config.Config, xenforoClient *xenforo.Client, gith
 	}
 }
 
-func (p *PreflightChecker) RunChecks() error {
+func (p *PreflightChecker) RunChecks(ctx context.Context) error {
 	log.Println("Running pre-flight checks...")
 
 	if p.config.Migration.DryRun {
@@ -63,7 +64,7 @@ func (p *PreflightChecker) RunChecks() error {
 		return err
 	}
 
-	if err := p.checkGitHubAPI(); err != nil {
+	if err := p.checkGitHubAPI(ctx); err != nil {
 		return err
 	}
 
@@ -83,12 +84,12 @@ func (p *PreflightChecker) checkXenForoAPI() error {
 	return nil
 }
 
-func (p *PreflightChecker) checkGitHubAPI() error {
+func (p *PreflightChecker) checkGitHubAPI(ctx context.Context) error {
 	if p.githubClient == nil {
 		return nil
 	}
 
-	info, err := p.githubClient.GetRepositoryInfo(p.config.GitHub.Repository)
+	info, err := p.githubClient.GetRepositoryInfo(ctx, p.config.GitHub.Repository)
 	if err != nil {
 		return fmt.Errorf("GitHub API check failed: %w", err)
 	}

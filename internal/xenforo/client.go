@@ -17,15 +17,14 @@ type Client struct {
 }
 
 func NewClient(baseURL, apiKey, apiUser string, maxRetries int) *Client {
-	// Create resty client with appropriate timeouts and settings
 	restyClient := resty.New().
-		SetTimeout(30*time.Second).                               // Overall request timeout (30s for API calls)
-		SetRetryCount(0).                                         // Disable resty's built-in retry (we handle our own)
-		SetRetryWaitTime(1*time.Second).                          // Not used due to retry count 0, but good practice
-		SetRetryMaxWaitTime(10*time.Second).                      // Not used due to retry count 0, but good practice
-		SetHeader("User-Agent", "XenForo-to-GH-Discussions/1.0"). // Set user agent
-		SetHeader("Accept", "application/json").                  // Expect JSON responses
-		SetHeader("Content-Type", "application/json")             // Send JSON content
+		SetTimeout(30*time.Second).
+		SetRetryCount(0).
+		SetRetryWaitTime(1*time.Second).
+		SetRetryMaxWaitTime(10*time.Second).
+		SetHeader("User-Agent", "XenForo-to-GH-Discussions/1.0").
+		SetHeader("Accept", "application/json").
+		SetHeader("Content-Type", "application/json")
 
 	return &Client{
 		baseURL:    baseURL,

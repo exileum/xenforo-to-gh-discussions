@@ -13,7 +13,7 @@ type DiscussionResult struct {
 	Number int
 }
 
-func (c *Client) CreateDiscussion(title, body, categoryID string) (*DiscussionResult, error) {
+func (c *Client) CreateDiscussion(ctx context.Context, title, body, categoryID string) (*DiscussionResult, error) {
 	// Input validation
 	if strings.TrimSpace(title) == "" {
 		return nil, fmt.Errorf("discussion title cannot be empty")
@@ -27,7 +27,7 @@ func (c *Client) CreateDiscussion(title, body, categoryID string) (*DiscussionRe
 
 	var result *DiscussionResult
 
-	err := c.executeWithRetry(func() error {
+	err := c.executeWithRetry(ctx, func() error {
 		var mutation struct {
 			CreateDiscussion struct {
 				Discussion struct {
@@ -64,7 +64,7 @@ func (c *Client) CreateDiscussion(title, body, categoryID string) (*DiscussionRe
 	return result, nil
 }
 
-func (c *Client) AddComment(discussionID, body string) error {
+func (c *Client) AddComment(ctx context.Context, discussionID, body string) error {
 	// Input validation
 	if strings.TrimSpace(discussionID) == "" {
 		return fmt.Errorf("discussionID cannot be empty")
@@ -73,7 +73,7 @@ func (c *Client) AddComment(discussionID, body string) error {
 		return fmt.Errorf("comment body cannot be empty")
 	}
 
-	return c.executeWithRetry(func() error {
+	return c.executeWithRetry(ctx, func() error {
 		var mutation struct {
 			AddDiscussionComment struct {
 				Comment struct {

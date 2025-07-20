@@ -1,6 +1,7 @@
 package migration
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/exileum/xenforo-to-gh-discussions/internal/attachments"
@@ -20,7 +21,7 @@ func NewMigrator(cfg *config.Config) *Migrator {
 	}
 }
 
-func (m *Migrator) Run() error {
+func (m *Migrator) Run(ctx context.Context) error {
 	// Validate configuration
 	if err := m.config.Validate(); err != nil {
 		return fmt.Errorf("configuration validation failed: %w", err)
@@ -69,11 +70,11 @@ func (m *Migrator) Run() error {
 
 	// Run pre-flight checks
 	checker := NewPreflightChecker(m.config, xenforoClient, githubClient)
-	if err := checker.RunChecks(); err != nil {
+	if err := checker.RunChecks(ctx); err != nil {
 		return fmt.Errorf("pre-flight checks failed: %w", err)
 	}
 
 	// Run migration
 	runner := NewRunner(m.config, xenforoClient, githubClient, tracker, downloader)
-	return runner.RunMigration()
+	return runner.RunMigration(ctx)
 }

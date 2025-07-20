@@ -1,6 +1,7 @@
 package migration
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -48,7 +49,8 @@ func (r *InteractiveRunner) Run(cfg *config.Config) error {
 			cfg.GitHub.XenForoNodeID, cfg.GitHub.GitHubCategoryID)
 
 		migrator := NewMigrator(cfg)
-		if err := migrator.Run(); err != nil {
+		ctx := context.Background()
+		if err := migrator.Run(ctx); err != nil {
 			if !r.nonInteractive {
 				r.handleMigrationError(err, cfg)
 			} else {
@@ -159,7 +161,8 @@ func (r *InteractiveRunner) selectNewCategories(cfg *config.Config) error {
 
 	// Fetch GitHub categories
 	fmt.Print("\nFetching GitHub Discussion categories... ")
-	ghCategories, err := config.ValidateGitHubAuth(cfg.GitHub.Token, cfg.GitHub.Repository)
+	ctx := context.Background()
+	ghCategories, err := config.ValidateGitHubAuth(ctx, cfg.GitHub.Token, cfg.GitHub.Repository)
 	if err != nil {
 		return fmt.Errorf("failed to fetch GitHub categories: %w", err)
 	}
