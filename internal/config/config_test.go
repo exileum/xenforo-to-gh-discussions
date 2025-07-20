@@ -28,13 +28,19 @@ func TestConfigDefaults(t *testing.T) {
 
 func TestConfigEnvironmentVariables(t *testing.T) {
 	// Set environment variables
-	os.Setenv("XENFORO_API_URL", "https://test-forum.com/api")
-	os.Setenv("MAX_RETRIES", "5")
-	os.Setenv("ATTACHMENT_RATE_LIMIT_DELAY", "1s")
+	if err := os.Setenv("XENFORO_API_URL", "https://test-forum.com/api"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Setenv("MAX_RETRIES", "5"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Setenv("ATTACHMENT_RATE_LIMIT_DELAY", "1s"); err != nil {
+		t.Fatal(err)
+	}
 	defer func() {
-		os.Unsetenv("XENFORO_API_URL")
-		os.Unsetenv("MAX_RETRIES")
-		os.Unsetenv("ATTACHMENT_RATE_LIMIT_DELAY")
+		_ = os.Unsetenv("XENFORO_API_URL")
+		_ = os.Unsetenv("MAX_RETRIES")
+		_ = os.Unsetenv("ATTACHMENT_RATE_LIMIT_DELAY")
 	}()
 
 	cfg := New()
