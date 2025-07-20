@@ -98,38 +98,49 @@ func (p *MessageProcessor) convertAtMentions(content string) string {
 	// Find all email matches first to exclude them
 	emailMatches := emailRe.FindAllStringIndex(content, -1)
 
-	// Use ReplaceAllStringFunc with position tracking for efficiency
-	result := mentionRe.ReplaceAllStringFunc(content, func(match string) string {
-		// Get the match position using FindStringIndex
-		matchIndices := mentionRe.FindAllStringIndex(content, -1)
-		var matchStart, matchEnd int
+	// Precompute all mention matches once for efficiency
+	mentionMatches := mentionRe.FindAllStringIndex(content, -1)
+	if len(mentionMatches) == 0 {
+		return content
+	}
 
-		// Find the current match position by comparing the match string
-		for _, indices := range matchIndices {
-			if content[indices[0]:indices[1]] == match {
-				matchStart, matchEnd = indices[0], indices[1]
-				break
-			}
-		}
+	// Process matches in reverse order to maintain correct string positions during replacement
+	result := content
+	offset := 0
+
+	for _, matchIndices := range mentionMatches {
+		matchStart, matchEnd := matchIndices[0], matchIndices[1]
+		match := content[matchStart:matchEnd]
 
 		// Check if this @ symbol is part of an email by checking overlap with email matches
+		isInEmail := false
 		for _, emailIndex := range emailMatches {
 			emailStart, emailEnd := emailIndex[0], emailIndex[1]
 			// If the @ symbol overlaps with an email, skip conversion
 			if matchStart >= emailStart && matchEnd <= emailEnd {
-				return match
+				isInEmail = true
+				break
 			}
+		}
+
+		if isInEmail {
+			continue
 		}
 
 		// Extract username from the match
 		parts := mentionRe.FindStringSubmatch(match)
 		if len(parts) < 2 {
-			return match
+			continue
 		}
 		username := parts[1]
+		replacement := "**" + username + "**"
 
-		return "**" + username + "**"
-	})
+		// Apply replacement with offset adjustment
+		adjustedStart := matchStart + offset
+		adjustedEnd := matchEnd + offset
+		result = result[:adjustedStart] + replacement + result[adjustedEnd:]
+		offset += len(replacement) - (matchEnd - matchStart)
+	}
 
 	return result
 }
