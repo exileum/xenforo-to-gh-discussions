@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/shurcooL/githubv4"
@@ -19,8 +20,8 @@ type Client struct {
 	rateLimitDelay       time.Duration
 	maxRetries           int
 	retryBackoffMultiple int
-	operationCount       int
-	rateLimitHits        int
+	operationCount       int64
+	rateLimitHits        int64
 }
 
 type RateLimitError struct {
@@ -136,14 +137,14 @@ func (c *Client) logRateLimitStatus() {
 // executeWithRetry executes a function with rate limit handling and exponential backoff
 func (c *Client) executeWithRetry(operation func() error) error {
 	var lastErr error
-	c.operationCount++
+	atomic.AddInt64(&c.operationCount, 1)
 
 	for attempt := 0; attempt <= c.maxRetries; attempt++ {
 		// Apply rate limit delay before each attempt (except the first)
 		if attempt > 0 {
 			backoffDuration := time.Duration(attempt*c.retryBackoffMultiple) * time.Second
 			log.Printf("GitHub API retry attempt %d/%d, waiting %v... (total ops: %d, rate limit hits: %d)",
-				attempt, c.maxRetries, backoffDuration, c.operationCount, c.rateLimitHits)
+				attempt, c.maxRetries, backoffDuration, atomic.LoadInt64(&c.operationCount), atomic.LoadInt64(&c.rateLimitHits))
 			time.Sleep(backoffDuration)
 		} else if c.rateLimitDelay > 0 {
 			// Always apply base rate limit delay
@@ -155,7 +156,7 @@ func (c *Client) executeWithRetry(operation func() error) error {
 		if err == nil {
 			// Success!
 			if attempt > 0 {
-				log.Printf("GitHub API operation succeeded after %d retries (total ops: %d)", attempt, c.operationCount)
+				log.Printf("GitHub API operation succeeded after %d retries (total ops: %d)", attempt, atomic.LoadInt64(&c.operationCount))
 			}
 			return nil
 		}
@@ -164,19 +165,19 @@ func (c *Client) executeWithRetry(operation func() error) error {
 
 		// Check if this is a rate limit error
 		if rateLimitErr, isRateLimit := c.parseRateLimitFromError(err); isRateLimit {
-			c.rateLimitHits++
-			log.Printf("GitHub API rate limit detected (#%d): %s", c.rateLimitHits, rateLimitErr.Error())
+			atomic.AddInt64(&c.rateLimitHits, 1)
+			log.Printf("GitHub API rate limit detected (#%d): %s", atomic.LoadInt64(&c.rateLimitHits), rateLimitErr.Error())
 
 			// If we've exhausted retries, return the rate limit error
 			if attempt >= c.maxRetries {
-				log.Printf("Maximum retries (%d) exceeded for GitHub API rate limit (total rate limit hits: %d)", c.maxRetries, c.rateLimitHits)
+				log.Printf("Maximum retries (%d) exceeded for GitHub API rate limit (total rate limit hits: %d)", c.maxRetries, atomic.LoadInt64(&c.rateLimitHits))
 				return rateLimitErr
 			}
 
 			// Calculate wait time until rate limit resets
 			waitTime := time.Until(rateLimitErr.ResetTime)
 			if waitTime > 0 && waitTime < 2*time.Hour { // Reasonable maximum wait time
-				log.Printf("Waiting %v for GitHub API rate limit to reset... (hit #%d)", waitTime, c.rateLimitHits)
+				log.Printf("Waiting %v for GitHub API rate limit to reset... (hit #%d)", waitTime, atomic.LoadInt64(&c.rateLimitHits))
 				time.Sleep(waitTime)
 			}
 
@@ -186,7 +187,7 @@ func (c *Client) executeWithRetry(operation func() error) error {
 		// If it's not a rate limit error, check if we should retry
 		// For now, we'll retry on any error, but this could be made more specific
 		if attempt >= c.maxRetries {
-			log.Printf("Maximum retries (%d) exceeded for GitHub API operation (total ops: %d)", c.maxRetries, c.operationCount)
+			log.Printf("Maximum retries (%d) exceeded for GitHub API operation (total ops: %d)", c.maxRetries, atomic.LoadInt64(&c.operationCount))
 			break
 		}
 
@@ -197,6 +198,6 @@ func (c *Client) executeWithRetry(operation func() error) error {
 }
 
 // GetStats returns operation statistics for monitoring
-func (c *Client) GetStats() (operationCount, rateLimitHits int) {
-	return c.operationCount, c.rateLimitHits
+func (c *Client) GetStats() (operationCount, rateLimitHits int64) {
+	return atomic.LoadInt64(&c.operationCount), atomic.LoadInt64(&c.rateLimitHits)
 }
