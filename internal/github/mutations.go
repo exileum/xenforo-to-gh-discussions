@@ -13,7 +13,7 @@ type DiscussionResult struct {
 	Number int
 }
 
-func (c *Client) CreateDiscussion(title, body, categoryID string) (*DiscussionResult, error) {
+func (c *Client) CreateDiscussion(ctx context.Context, title, body, categoryID string) (*DiscussionResult, error) {
 	// Input validation
 	if strings.TrimSpace(title) == "" {
 		return nil, fmt.Errorf("discussion title cannot be empty")
@@ -25,34 +25,46 @@ func (c *Client) CreateDiscussion(title, body, categoryID string) (*DiscussionRe
 		return nil, fmt.Errorf("categoryID cannot be empty")
 	}
 
-	var mutation struct {
-		CreateDiscussion struct {
-			Discussion struct {
-				ID     string
-				Number int
-			}
-		} `graphql:"createDiscussion(input: $input)"`
-	}
+	var result *DiscussionResult
 
-	input := githubv4.CreateDiscussionInput{
-		RepositoryID: githubv4.ID(c.repositoryID),
-		Title:        githubv4.String(title),
-		Body:         githubv4.String(body),
-		CategoryID:   githubv4.ID(categoryID),
-	}
+	err := c.executeWithRetry(ctx, func() error {
+		var mutation struct {
+			CreateDiscussion struct {
+				Discussion struct {
+					ID     string
+					Number int
+				}
+			} `graphql:"createDiscussion(input: $input)"`
+		}
 
-	err := c.client.Mutate(context.Background(), &mutation, input, nil)
+		input := githubv4.CreateDiscussionInput{
+			RepositoryID: githubv4.ID(c.repositoryID),
+			Title:        githubv4.String(title),
+			Body:         githubv4.String(body),
+			CategoryID:   githubv4.ID(categoryID),
+		}
+
+		err := c.client.Mutate(ctx, &mutation, input, nil)
+		if err != nil {
+			return fmt.Errorf("failed to create discussion %q in category %q: %w", title, categoryID, err)
+		}
+
+		result = &DiscussionResult{
+			ID:     mutation.CreateDiscussion.Discussion.ID,
+			Number: mutation.CreateDiscussion.Discussion.Number,
+		}
+
+		return nil
+	})
+
 	if err != nil {
-		return nil, fmt.Errorf("failed to create discussion %q in category %q: %w", title, categoryID, err)
+		return nil, err
 	}
 
-	return &DiscussionResult{
-		ID:     mutation.CreateDiscussion.Discussion.ID,
-		Number: mutation.CreateDiscussion.Discussion.Number,
-	}, nil
+	return result, nil
 }
 
-func (c *Client) AddComment(discussionID, body string) error {
+func (c *Client) AddComment(ctx context.Context, discussionID, body string) error {
 	// Input validation
 	if strings.TrimSpace(discussionID) == "" {
 		return fmt.Errorf("discussionID cannot be empty")
@@ -61,23 +73,25 @@ func (c *Client) AddComment(discussionID, body string) error {
 		return fmt.Errorf("comment body cannot be empty")
 	}
 
-	var mutation struct {
-		AddDiscussionComment struct {
-			Comment struct {
-				ID githubv4.ID
-			}
-		} `graphql:"addDiscussionComment(input: $input)"`
-	}
+	return c.executeWithRetry(ctx, func() error {
+		var mutation struct {
+			AddDiscussionComment struct {
+				Comment struct {
+					ID githubv4.ID
+				}
+			} `graphql:"addDiscussionComment(input: $input)"`
+		}
 
-	input := githubv4.AddDiscussionCommentInput{
-		DiscussionID: githubv4.ID(discussionID),
-		Body:         githubv4.String(body),
-	}
+		input := githubv4.AddDiscussionCommentInput{
+			DiscussionID: githubv4.ID(discussionID),
+			Body:         githubv4.String(body),
+		}
 
-	err := c.client.Mutate(context.Background(), &mutation, input, nil)
-	if err != nil {
-		return fmt.Errorf("failed to add comment to discussion %q: %w", discussionID, err)
-	}
+		err := c.client.Mutate(ctx, &mutation, input, nil)
+		if err != nil {
+			return fmt.Errorf("failed to add comment to discussion %q: %w", discussionID, err)
+		}
 
-	return nil
+		return nil
+	})
 }

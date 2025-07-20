@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/exileum/xenforo-to-gh-discussions/internal/config"
 	"github.com/exileum/xenforo-to-gh-discussions/internal/migration"
@@ -26,9 +27,12 @@ func TestMigrationIntegration(t *testing.T) {
 			NodeID:  1,
 		},
 		GitHub: config.GitHubConfig{
-			Token:      "test_token",
-			Repository: "test/repo",
-			Categories: map[int]string{1: "DIC_kwDOtest123"},
+			Token:                "test_token",
+			Repository:           "test/repo",
+			Categories:           map[int]string{1: "DIC_kwDOtest123"},
+			RateLimitDelay:       1 * time.Second,
+			MaxRetries:           3,
+			RetryBackoffMultiple: 2,
 		},
 		Migration: config.MigrationConfig{
 			MaxRetries:   3,
@@ -37,7 +41,8 @@ func TestMigrationIntegration(t *testing.T) {
 			ProgressFile: filepath.Join(tempDir, "progress.json"),
 		},
 		Filesystem: config.FilesystemConfig{
-			AttachmentsDir: filepath.Join(tempDir, "attachments"),
+			AttachmentsDir:           filepath.Join(tempDir, "attachments"),
+			AttachmentRateLimitDelay: 500 * time.Millisecond,
 		},
 	}
 
@@ -74,9 +79,12 @@ func TestEndToEndWithMocks(t *testing.T) {
 			NodeID:  1,
 		},
 		GitHub: config.GitHubConfig{
-			Token:      "test_token",
-			Repository: "test/repo",
-			Categories: map[int]string{1: "DIC_kwDOtest123"},
+			Token:                "test_token",
+			Repository:           "test/repo",
+			Categories:           map[int]string{1: "DIC_kwDOtest123"},
+			RateLimitDelay:       1 * time.Second,
+			MaxRetries:           3,
+			RetryBackoffMultiple: 2,
 		},
 		Migration: config.MigrationConfig{
 			MaxRetries:   3,
@@ -85,7 +93,8 @@ func TestEndToEndWithMocks(t *testing.T) {
 			ProgressFile: filepath.Join(tempDir, "progress.json"),
 		},
 		Filesystem: config.FilesystemConfig{
-			AttachmentsDir: filepath.Join(tempDir, "attachments"),
+			AttachmentsDir:           filepath.Join(tempDir, "attachments"),
+			AttachmentRateLimitDelay: 500 * time.Millisecond,
 		},
 	}
 

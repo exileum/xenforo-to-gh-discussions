@@ -1,6 +1,7 @@
 package migration
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"time"
@@ -33,8 +34,7 @@ func NewRunner(cfg *config.Config, xenforoClient *xenforo.Client, githubClient *
 	}
 }
 
-func (r *Runner) RunMigration() error {
-	// Get threads from XenForo
+func (r *Runner) RunMigration(ctx context.Context) error {
 	log.Printf("Fetching threads from forum node %d...", r.config.GitHub.XenForoNodeID)
 	threads, err := r.xenforoClient.GetThreads(r.config.GitHub.XenForoNodeID)
 	if err != nil {
@@ -42,15 +42,13 @@ func (r *Runner) RunMigration() error {
 	}
 	log.Printf("✓ Found %d threads to migrate", len(threads))
 
-	// Filter out already completed threads
 	threads = r.tracker.FilterCompletedThreads(threads)
 	log.Printf("✓ %d threads remaining after filtering completed ones", len(threads))
 
-	// Process each thread
 	for i, thread := range threads {
 		log.Printf("\nProcessing thread %d/%d: %s", i+1, len(threads), thread.Title)
 
-		if err := r.processThread(thread); err != nil {
+		if err := r.processThread(ctx, thread); err != nil {
 			log.Printf("✗ Failed to process thread %d: %v", thread.ThreadID, err)
 			if markErr := r.tracker.MarkFailed(thread.ThreadID); markErr != nil {
 				log.Printf("✗ Warning: Failed to mark thread %d as failed in progress tracker: %v", thread.ThreadID, markErr)
@@ -60,7 +58,6 @@ func (r *Runner) RunMigration() error {
 
 		if err := r.tracker.MarkCompleted(thread.ThreadID); err != nil {
 			log.Printf("✗ Warning: Failed to mark thread %d as completed in progress tracker: %v", thread.ThreadID, err)
-			// Continue processing despite tracking error - the thread was actually processed successfully
 		}
 	}
 
@@ -68,45 +65,36 @@ func (r *Runner) RunMigration() error {
 	return nil
 }
 
-func (r *Runner) processThread(thread xenforo.Thread) error {
-	// Use the single configured category ID
+func (r *Runner) processThread(ctx context.Context, thread xenforo.Thread) error {
 	categoryID := r.config.GitHub.GitHubCategoryID
 
-	// Get posts for thread
 	posts, err := r.xenforoClient.GetPosts(thread)
 	if err != nil {
 		return err
 	}
 	log.Printf("  ✓ Found %d posts for thread", len(posts))
 
-	// Collect all attachments from all posts
 	var threadAttachments []xenforo.Attachment
 	for _, post := range posts {
 		threadAttachments = append(threadAttachments, post.Attachments...)
 	}
 
-	// Download attachments
 	if len(threadAttachments) > 0 {
 		log.Printf("  ✓ Found %d attachments across all posts", len(threadAttachments))
 		log.Printf("  Downloading attachments...")
 		if err := r.downloader.DownloadAttachments(threadAttachments); err != nil {
 			log.Printf("✗ Warning: Failed to download attachments for thread %d: %v", thread.ThreadID, err)
-			// Continue processing without attachments - the thread content can still be migrated
 		}
 	}
 
-	// Process posts
 	var discussionID string
 	discussionNumber := 0
 
 	for j, post := range posts {
-		// Convert BB codes to Markdown
 		markdown := r.processor.ProcessContent(post.Message)
 
-		// Replace attachment links
 		markdown = r.downloader.ReplaceAttachmentLinks(markdown, threadAttachments)
 
-		// Format message with metadata
 		body, err := r.processor.FormatMessage(post.Username, post.PostDate, thread.ThreadID, markdown)
 		if err != nil {
 			log.Printf("  Error formatting message for post by %s: %v", post.Username, err)
@@ -114,14 +102,13 @@ func (r *Runner) processThread(thread xenforo.Thread) error {
 		}
 
 		if j == 0 {
-			// Create discussion from the first post
 			if r.config.Migration.DryRun {
 				log.Printf("  [DRY-RUN] Would create discussion: %s", thread.Title)
 				if r.config.Migration.Verbose {
 					log.Printf("\n--- Discussion Body Preview ---\n%s\n--- End Preview ---\n", body)
 				}
 			} else {
-				result, err := r.githubClient.CreateDiscussion(thread.Title, body, categoryID)
+				result, err := r.githubClient.CreateDiscussion(ctx, thread.Title, body, categoryID)
 				if err != nil {
 					return err
 				}
@@ -130,14 +117,13 @@ func (r *Runner) processThread(thread xenforo.Thread) error {
 				log.Printf("✓ Created discussion #%d", discussionNumber)
 			}
 		} else {
-			// Add comment to the discussion
 			if r.config.Migration.DryRun {
 				log.Printf("  [DRY-RUN] Would add comment by %s", post.Username)
 				if r.config.Migration.Verbose {
 					log.Printf("\n--- Comment Preview ---\n%s\n--- End Preview ---\n", body)
 				}
 			} else if discussionID != "" {
-				if err := r.githubClient.AddComment(discussionID, body); err != nil {
+				if err := r.githubClient.AddComment(ctx, discussionID, body); err != nil {
 					log.Printf("✗ Failed to add comment: %v", err)
 				} else {
 					log.Printf("  ✓ Added comment by %s", post.Username)
@@ -145,7 +131,6 @@ func (r *Runner) processThread(thread xenforo.Thread) error {
 			}
 		}
 
-		// Rate limiting
 		if !r.config.Migration.DryRun {
 			time.Sleep(1 * time.Second)
 		}

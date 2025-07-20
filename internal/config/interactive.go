@@ -2,6 +2,7 @@ package config
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"strconv"
@@ -310,7 +311,8 @@ func InteractiveConfig() *Config {
 	// Validate GitHub token immediately
 	fmt.Print("Validating GitHub token... ")
 
-	ghCategories, err := ValidateGitHubAuth(cfg.GitHub.Token, cfg.GitHub.Repository)
+	ctx := context.Background()
+	ghCategories, err := ValidateGitHubAuth(ctx, cfg.GitHub.Token, cfg.GitHub.Repository)
 	if err != nil {
 		fmt.Printf("✗ %v\n", err)
 		os.Exit(1)
@@ -329,6 +331,12 @@ func InteractiveConfig() *Config {
 
 	cfg.GitHub.GitHubCategoryID = selectedGHCategory.ID
 
+	// GitHub API Rate Limiting Settings
+	fmt.Println("\nGitHub API Rate Limiting (optional - press Enter for defaults):")
+	cfg.GitHub.RateLimitDelay = PromptDuration("API call delay", getEnvDurationOrDefault("GITHUB_RATE_LIMIT_DELAY", 1*time.Second))
+	cfg.GitHub.MaxRetries = PromptInt("Max retries for rate limited requests", getEnvIntOrDefault("GITHUB_MAX_RETRIES", 5))
+	cfg.GitHub.RetryBackoffMultiple = PromptInt("Retry backoff multiplier (seconds)", getEnvIntOrDefault("GITHUB_RETRY_BACKOFF_MULTIPLE", 2))
+
 	// Migration Settings
 	fmt.Println("\nMigration Settings:")
 	cfg.Migration.MaxRetries = PromptInt("Max Retries", getEnvIntOrDefault("MAX_RETRIES", 3))
@@ -340,6 +348,7 @@ func InteractiveConfig() *Config {
 
 	// Set other defaults
 	cfg.Migration.UserMapping = make(map[int]int)
+	cfg.GitHub.Categories = make(map[int]string)
 
 	return cfg
 }
@@ -381,15 +390,15 @@ func ValidateXenForoAuth(apiURL, apiKey string, userID string) ([]SelectOption, 
 }
 
 // ValidateGitHubAuth validates GitHub token and returns available discussion categories
-func ValidateGitHubAuth(token, repository string) ([]SelectOption, error) {
+func ValidateGitHubAuth(ctx context.Context, token, repository string) ([]SelectOption, error) {
 	// Create a temporary client for validation
-	client, err := github.NewClient(token)
+	client, err := github.NewClient(token, 1*time.Second, 3, 2)
 	if err != nil {
 		return nil, err
 	}
 
 	// Get repository info including categories
-	info, err := client.GetRepositoryInfo(repository)
+	info, err := client.GetRepositoryInfo(ctx, repository)
 	if err != nil {
 		return nil, err
 	}

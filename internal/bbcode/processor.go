@@ -19,22 +19,18 @@ func NewMessageProcessor() *MessageProcessor {
 }
 
 func (p *MessageProcessor) FormatMessage(username string, postDate int64, threadID int, content string) (string, error) {
-	// Validate username
 	if strings.TrimSpace(username) == "" {
 		return "", errors.New("username cannot be empty")
 	}
 
-	// Validate threadID
 	if threadID <= 0 {
 		return "", errors.New("threadID must be positive")
 	}
 
-	// Validate content
 	if strings.TrimSpace(content) == "" {
 		return "", errors.New("content cannot be empty")
 	}
 
-	// Validate and convert timestamp
 	if postDate < 0 {
 		return "", errors.New("postDate cannot be negative")
 	}
@@ -49,10 +45,9 @@ func (p *MessageProcessor) FormatMessage(username string, postDate int64, thread
 		}()
 
 		t := time.Unix(postDate, 0).UTC()
-		// Check if the converted time is reasonable (not too far in past/future)
 		now := time.Now().UTC()
 		minDate := time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC)
-		maxDate := now.AddDate(10, 0, 0) // Allow up to 10 years in the future
+		maxDate := now.AddDate(10, 0, 0)
 
 		if t.Before(minDate) || t.After(maxDate) {
 			timestamp = fmt.Sprintf("Invalid Date (timestamp: %d)", postDate)
@@ -61,7 +56,6 @@ func (p *MessageProcessor) FormatMessage(username string, postDate int64, thread
 		}
 	}()
 
-	// If timestamp conversion failed, return error
 	if strings.Contains(timestamp, "Invalid Date") {
 		return "", fmt.Errorf("invalid timestamp: %d", postDate)
 	}
@@ -80,7 +74,6 @@ Original Thread ID: %d
 func (p *MessageProcessor) ProcessContent(content string) string {
 	result := p.converter.ToMarkdown(content)
 
-	// Convert @username mentions to **username** to avoid GitHub user mentions
 	result = p.convertAtMentions(result)
 
 	return result
@@ -88,29 +81,49 @@ func (p *MessageProcessor) ProcessContent(content string) string {
 
 // convertAtMentions converts @username patterns to **username** bold format
 func (p *MessageProcessor) convertAtMentions(content string) string {
-	// Match @username patterns (alphanumeric, underscore, hyphen)
-	// Simple approach: match @word_boundary to avoid matching emails
-	re := regexp.MustCompile(`@([a-zA-Z0-9_-]+)\b`)
+	mentionRe := regexp.MustCompile(`@([a-zA-Z0-9_-]*[a-zA-Z]+[a-zA-Z0-9_-]*)\b`)
 
-	// Check if it's not part of an email by ensuring no . before or after
-	result := re.ReplaceAllStringFunc(content, func(match string) string {
-		// Find the match position
-		parts := re.FindStringSubmatch(match)
+	emailRe := regexp.MustCompile(`[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}`)
+
+	emailMatches := emailRe.FindAllStringIndex(content, -1)
+
+	mentionMatches := mentionRe.FindAllStringIndex(content, -1)
+	if len(mentionMatches) == 0 {
+		return content
+	}
+
+	result := content
+	offset := 0
+
+	for _, matchIndices := range mentionMatches {
+		matchStart, matchEnd := matchIndices[0], matchIndices[1]
+		match := content[matchStart:matchEnd]
+
+		isInEmail := false
+		for _, emailIndex := range emailMatches {
+			emailStart, emailEnd := emailIndex[0], emailIndex[1]
+			if matchStart >= emailStart && matchEnd <= emailEnd {
+				isInEmail = true
+				break
+			}
+		}
+
+		if isInEmail {
+			continue
+		}
+
+		parts := mentionRe.FindStringSubmatch(match)
 		if len(parts) < 2 {
-			return match
+			continue
 		}
 		username := parts[1]
+		replacement := "**" + username + "**"
 
-		// Simple heuristic: if the @ is preceded by alphanumeric, it's likely an email
-		idx := strings.Index(content, match)
-		if idx > 0 && (content[idx-1] >= 'a' && content[idx-1] <= 'z' ||
-			content[idx-1] >= 'A' && content[idx-1] <= 'Z' ||
-			content[idx-1] >= '0' && content[idx-1] <= '9') {
-			return match // Keep as-is (likely email)
-		}
-
-		return "**" + username + "**"
-	})
+		adjustedStart := matchStart + offset
+		adjustedEnd := matchEnd + offset
+		result = result[:adjustedStart] + replacement + result[adjustedEnd:]
+		offset += len(replacement) - (matchEnd - matchStart)
+	}
 
 	return result
 }
