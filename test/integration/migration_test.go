@@ -16,7 +16,7 @@ func TestMigrationIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create a test configuration
 	cfg := &config.Config{
@@ -69,7 +69,7 @@ func TestEndToEndWithMocks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	cfg := &config.Config{
 		XenForo: config.XenForoConfig{

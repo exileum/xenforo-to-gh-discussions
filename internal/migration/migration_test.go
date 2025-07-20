@@ -54,18 +54,18 @@ func (tm *testMigrator) processThread(thread xenforo.Thread) error {
 	return nil
 }
 
-func (tm *testMigrator) runThreads(threads []xenforo.Thread) error {
+func (tm *testMigrator) runThreads(t *testing.T, threads []xenforo.Thread) error {
 	// Simulate the main processing loop from runner.go
 	for _, thread := range threads {
 		if err := tm.processThread(thread); err != nil {
 			if markErr := tm.tracker.MarkFailed(thread.ThreadID); markErr != nil {
-				// This would be logged in real code
+				t.Logf("Failed to mark thread %d as failed: %v", thread.ThreadID, markErr)
 			}
 			continue
 		}
 
 		if err := tm.tracker.MarkCompleted(thread.ThreadID); err != nil {
-			// This would be logged in real code
+			t.Logf("Failed to mark thread %d as completed: %v", thread.ThreadID, err)
 		}
 	}
 	return nil
@@ -132,7 +132,7 @@ func TestProgressTrackingErrorHandling(t *testing.T) {
 			}
 
 			// Run the migration
-			err := migrator.runThreads(threads)
+			err := migrator.runThreads(t, threads)
 			if err != nil {
 				t.Errorf("runThreads should not return error: %v", err)
 			}
@@ -170,7 +170,7 @@ func TestProgressTrackingErrorMessages(t *testing.T) {
 	}
 
 	// This should not panic or fail despite the tracking error
-	err := migrator.runThreads(threads)
+	err := migrator.runThreads(t, threads)
 	if err != nil {
 		t.Errorf("Should handle tracking errors gracefully: %v", err)
 	}
@@ -209,11 +209,11 @@ type testMigratorWithDownloader struct {
 	attachments  []xenforo.Attachment
 }
 
-func (tm *testMigratorWithDownloader) processThreadWithDownloads(thread xenforo.Thread) error {
+func (tm *testMigratorWithDownloader) processThreadWithDownloads(t *testing.T, thread xenforo.Thread) error {
 	// Simulate the download logic from runner.go
 	if len(tm.attachments) > 0 {
 		if err := tm.downloader.DownloadAttachments(tm.attachments); err != nil {
-			// This would be logged in real code
+			t.Logf("Failed to download attachments: %v", err)
 		}
 	}
 
@@ -283,7 +283,7 @@ func TestAttachmentDownloadErrorHandling(t *testing.T) {
 			thread := xenforo.Thread{ThreadID: 1, Title: "Test Thread"}
 
 			// Process the thread
-			err := migrator.processThreadWithDownloads(thread)
+			err := migrator.processThreadWithDownloads(t, thread)
 
 			// Verify download call behavior
 			if tt.expectDownloadCall {
