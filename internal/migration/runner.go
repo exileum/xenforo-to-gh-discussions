@@ -66,68 +66,64 @@ func (r *Runner) RunMigration(ctx context.Context) error {
 }
 
 func (r *Runner) processThread(ctx context.Context, thread xenforo.Thread) error {
-	categoryID := r.config.GitHub.GitHubCategoryID
-
-	posts, err := r.xenforoClient.GetPosts(thread)
+	posts, err := r.fetchPosts(thread)
 	if err != nil {
 		return err
 	}
-	log.Printf("  ✓ Found %d posts for thread", len(posts))
 
+	threadAttachments := r.collectAttachments(posts)
+	if err := r.downloadAttachments(thread.ThreadID, threadAttachments); err != nil {
+		// Log warning but continue processing
+		log.Printf("✗ Warning: Failed to download attachments for thread %d: %v", thread.ThreadID, err)
+	}
+
+	return r.processPosts(ctx, thread, posts, threadAttachments)
+}
+
+func (r *Runner) fetchPosts(thread xenforo.Thread) ([]xenforo.Post, error) {
+	posts, err := r.xenforoClient.GetPosts(thread)
+	if err != nil {
+		return nil, err
+	}
+	log.Printf("  ✓ Found %d posts for thread", len(posts))
+	return posts, nil
+}
+
+func (r *Runner) collectAttachments(posts []xenforo.Post) []xenforo.Attachment {
 	var threadAttachments []xenforo.Attachment
 	for _, post := range posts {
 		threadAttachments = append(threadAttachments, post.Attachments...)
 	}
+	return threadAttachments
+}
 
-	if len(threadAttachments) > 0 {
-		log.Printf("  ✓ Found %d attachments across all posts", len(threadAttachments))
-		log.Printf("  Downloading attachments...")
-		if err := r.downloader.DownloadAttachments(threadAttachments); err != nil {
-			log.Printf("✗ Warning: Failed to download attachments for thread %d: %v", thread.ThreadID, err)
-		}
+func (r *Runner) downloadAttachments(threadID int, attachments []xenforo.Attachment) error {
+	if len(attachments) == 0 {
+		return nil
 	}
 
+	log.Printf("  ✓ Found %d attachments across all posts", len(attachments))
+	log.Printf("  Downloading attachments...")
+	return r.downloader.DownloadAttachments(attachments)
+}
+
+func (r *Runner) processPosts(ctx context.Context, thread xenforo.Thread, posts []xenforo.Post, threadAttachments []xenforo.Attachment) error {
 	var discussionID string
-	discussionNumber := 0
 
 	for j, post := range posts {
-		markdown := r.processor.ProcessContent(post.Message)
-
-		markdown = r.downloader.ReplaceAttachmentLinks(markdown, threadAttachments)
-
-		body, err := r.processor.FormatMessage(post.Username, post.PostDate, thread.ThreadID, markdown)
+		body, err := r.formatPost(post, thread.ThreadID, threadAttachments)
 		if err != nil {
-			log.Printf("  Error formatting message for post by %s: %v", post.Username, err)
-			return fmt.Errorf("failed to format message: %w", err)
+			return err
 		}
 
 		if j == 0 {
-			if r.config.Migration.DryRun {
-				log.Printf("  [DRY-RUN] Would create discussion: %s", thread.Title)
-				if r.config.Migration.Verbose {
-					log.Printf("\n--- Discussion Body Preview ---\n%s\n--- End Preview ---\n", body)
-				}
-			} else {
-				result, err := r.githubClient.CreateDiscussion(ctx, thread.Title, body, categoryID)
-				if err != nil {
-					return err
-				}
-				discussionID = result.ID
-				discussionNumber = result.Number
-				log.Printf("✓ Created discussion #%d", discussionNumber)
+			discussionID, _, err = r.createDiscussion(ctx, thread, body)
+			if err != nil {
+				return err
 			}
 		} else {
-			if r.config.Migration.DryRun {
-				log.Printf("  [DRY-RUN] Would add comment by %s", post.Username)
-				if r.config.Migration.Verbose {
-					log.Printf("\n--- Comment Preview ---\n%s\n--- End Preview ---\n", body)
-				}
-			} else if discussionID != "" {
-				if err := r.githubClient.AddComment(ctx, discussionID, body); err != nil {
-					log.Printf("✗ Failed to add comment: %v", err)
-				} else {
-					log.Printf("  ✓ Added comment by %s", post.Username)
-				}
+			if err := r.addComment(ctx, post, discussionID, body); err != nil {
+				log.Printf("✗ Failed to add comment: %v", err)
 			}
 		}
 
@@ -136,5 +132,56 @@ func (r *Runner) processThread(ctx context.Context, thread xenforo.Thread) error
 		}
 	}
 
+	return nil
+}
+
+func (r *Runner) formatPost(post xenforo.Post, threadID int, threadAttachments []xenforo.Attachment) (string, error) {
+	markdown := r.processor.ProcessContent(post.Message)
+	markdown = r.downloader.ReplaceAttachmentLinks(markdown, threadAttachments)
+
+	body, err := r.processor.FormatMessage(post.Username, post.PostDate, threadID, markdown)
+	if err != nil {
+		log.Printf("  Error formatting message for post by %s: %v", post.Username, err)
+		return "", fmt.Errorf("failed to format message: %w", err)
+	}
+	return body, nil
+}
+
+func (r *Runner) createDiscussion(ctx context.Context, thread xenforo.Thread, body string) (string, int, error) {
+	categoryID := r.config.GitHub.GitHubCategoryID
+
+	if r.config.Migration.DryRun {
+		log.Printf("  [DRY-RUN] Would create discussion: %s", thread.Title)
+		if r.config.Migration.Verbose {
+			log.Printf("\n--- Discussion Body Preview ---\n%s\n--- End Preview ---\n", body)
+		}
+		return "", 0, nil
+	}
+
+	result, err := r.githubClient.CreateDiscussion(ctx, thread.Title, body, categoryID)
+	if err != nil {
+		return "", 0, err
+	}
+	log.Printf("✓ Created discussion #%d", result.Number)
+	return result.ID, result.Number, nil
+}
+
+func (r *Runner) addComment(ctx context.Context, post xenforo.Post, discussionID, body string) error {
+	if r.config.Migration.DryRun {
+		log.Printf("  [DRY-RUN] Would add comment by %s", post.Username)
+		if r.config.Migration.Verbose {
+			log.Printf("\n--- Comment Preview ---\n%s\n--- End Preview ---\n", body)
+		}
+		return nil
+	}
+
+	if discussionID == "" {
+		return nil
+	}
+
+	if err := r.githubClient.AddComment(ctx, discussionID, body); err != nil {
+		return err
+	}
+	log.Printf("  ✓ Added comment by %s", post.Username)
 	return nil
 }

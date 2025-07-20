@@ -26,57 +26,80 @@ func NewInteractiveRunner(nonInteractive bool) *InteractiveRunner {
 // Run executes the complete migration workflow with interactive prompts
 func (r *InteractiveRunner) Run(cfg *config.Config) error {
 	for {
-		// Set progress file per category
-		cfg.Migration.ProgressFile = fmt.Sprintf("migration_progress_node%d.json", cfg.GitHub.XenForoNodeID)
+		r.setProgressFile(cfg)
 
-		// Offer dry run (only in interactive mode and if not already in dry run)
-		if !r.nonInteractive && !cfg.Migration.DryRun {
-			if config.PromptBool("Would you like to do a dry run first? (recommended)", true) {
-				if err := r.runDryRun(cfg); err != nil {
-					log.Printf("Dry run failed: %v", err)
-					continue
-				}
-			}
-
-			// Always ask for confirmation before starting actual migration
-			if !config.PromptBool("Start the actual migration now?", false) {
-				continue
-			}
+		if shouldContinue, err := r.handlePreMigrationSteps(cfg); err != nil {
+			return err
+		} else if !shouldContinue {
+			continue
 		}
 
-		// Run migration for single category
-		fmt.Printf("\nStarting migration of XenForo Node %d to GitHub Category %s...\n",
-			cfg.GitHub.XenForoNodeID, cfg.GitHub.GitHubCategoryID)
-
-		migrator := NewMigrator(cfg)
-		ctx := context.Background()
-		if err := migrator.Run(ctx); err != nil {
-			if !r.nonInteractive {
-				r.handleMigrationError(err, cfg)
-			} else {
+		if err := r.runMigration(cfg); err != nil {
+			if r.nonInteractive {
 				return fmt.Errorf("migration failed: %w", err)
 			}
+			// Interactive mode: error handling continues the loop
 		}
 
-		// In non-interactive mode, exit after one migration
 		if r.nonInteractive {
 			break
 		}
 
-		// Ask to continue
-		fmt.Println("\nMigration complete!")
-		if !config.PromptBool("Migrate another category?", true) {
-			break
-		}
-
-		// Select new categories
-		if err := r.selectNewCategories(cfg); err != nil {
+		if shouldContinue, err := r.handlePostMigrationSteps(cfg); err != nil {
 			log.Printf("Error selecting categories: %v", err)
+			break
+		} else if !shouldContinue {
 			break
 		}
 	}
 
 	return nil
+}
+
+func (r *InteractiveRunner) setProgressFile(cfg *config.Config) {
+	cfg.Migration.ProgressFile = fmt.Sprintf("migration_progress_node%d.json", cfg.GitHub.XenForoNodeID)
+}
+
+func (r *InteractiveRunner) handlePreMigrationSteps(cfg *config.Config) (bool, error) {
+	if r.nonInteractive || cfg.Migration.DryRun {
+		return true, nil
+	}
+
+	if config.PromptBool("Would you like to do a dry run first? (recommended)", true) {
+		if err := r.runDryRun(cfg); err != nil {
+			log.Printf("Dry run failed: %v", err)
+			return false, nil
+		}
+	}
+
+	return config.PromptBool("Start the actual migration now?", false), nil
+}
+
+func (r *InteractiveRunner) runMigration(cfg *config.Config) error {
+	fmt.Printf("\nStarting migration of XenForo Node %d to GitHub Category %s...\n",
+		cfg.GitHub.XenForoNodeID, cfg.GitHub.GitHubCategoryID)
+
+	migrator := NewMigrator(cfg)
+	ctx := context.Background()
+	if err := migrator.Run(ctx); err != nil {
+		if !r.nonInteractive {
+			r.handleMigrationError(err, cfg)
+		}
+		return err
+	}
+	return nil
+}
+
+func (r *InteractiveRunner) handlePostMigrationSteps(cfg *config.Config) (bool, error) {
+	fmt.Println("\nMigration complete!")
+	if !config.PromptBool("Migrate another category?", true) {
+		return false, nil
+	}
+
+	if err := r.selectNewCategories(cfg); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // handleMigrationError handles errors during migration with retry/skip/abort options

@@ -91,10 +91,29 @@ func (c *Config) validateXenForo() error {
 }
 
 func (c *Config) validateGitHub() error {
+	if err := c.validateGitHubAuth(); err != nil {
+		return err
+	}
+
+	if err := c.validateGitHubRepository(); err != nil {
+		return err
+	}
+
+	if err := c.validateGitHubRateLimiting(); err != nil {
+		return err
+	}
+
+	return c.validateGitHubCategories()
+}
+
+func (c *Config) validateGitHubAuth() error {
 	if c.GitHub.Token == "" || c.GitHub.Token == "your_github_token" {
 		return fmt.Errorf("GitHub token must be configured")
 	}
+	return nil
+}
 
+func (c *Config) validateGitHubRepository() error {
 	if c.GitHub.Repository == "" || c.GitHub.Repository == "your_username/your_repo" {
 		return fmt.Errorf("GitHub repository must be configured")
 	}
@@ -103,8 +122,10 @@ func (c *Config) validateGitHub() error {
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
 		return fmt.Errorf("GitHub repository must be in format 'owner/repo'")
 	}
+	return nil
+}
 
-	// Validate rate limiting configuration
+func (c *Config) validateGitHubRateLimiting() error {
 	if c.GitHub.RateLimitDelay < 0 {
 		return fmt.Errorf("GitHub rate limit delay cannot be negative")
 	}
@@ -116,14 +137,12 @@ func (c *Config) validateGitHub() error {
 	if c.GitHub.RetryBackoffMultiple <= 0 {
 		return fmt.Errorf("GitHub retry backoff multiple must be positive")
 	}
-
-	// Validate category configuration using shared logic
-	validator := &basicConfigValidator{}
-	if err := ValidateCategoryConfiguration(c, validator); err != nil {
-		return err
-	}
-
 	return nil
+}
+
+func (c *Config) validateGitHubCategories() error {
+	validator := &basicConfigValidator{}
+	return ValidateCategoryConfiguration(c, validator)
 }
 
 func (c *Config) validateMigration() error {
