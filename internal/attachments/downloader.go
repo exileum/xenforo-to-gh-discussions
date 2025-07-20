@@ -1,3 +1,6 @@
+// Package attachments provides functionality for downloading and managing
+// file attachments from XenForo forums. It handles secure file downloads,
+// URL sanitization, and filesystem management for migration purposes.
 package attachments
 
 import (

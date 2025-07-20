@@ -8,16 +8,26 @@ import (
 	"time"
 )
 
+// MessageProcessor handles complete message formatting for forum migration.
+// Combines BB-code conversion with metadata formatting including author,
+// timestamps, and thread information.
 type MessageProcessor struct {
 	converter *Converter
 }
 
+// NewMessageProcessor creates a new message processor with an integrated
+// BB-code converter for complete forum post processing.
 func NewMessageProcessor() *MessageProcessor {
 	return &MessageProcessor{
 		converter: NewConverter(),
 	}
 }
 
+// FormatMessage formats a complete forum post with metadata and content conversion.
+// Combines author information, timestamps, thread ID, and BB-code converted content
+// into a formatted GitHub Discussion post with YAML frontmatter.
+//
+// Returns an error if any required parameters are invalid or timestamp conversion fails.
 func (p *MessageProcessor) FormatMessage(username string, postDate int64, threadID int, content string) (string, error) {
 	if strings.TrimSpace(username) == "" {
 		return "", errors.New("username cannot be empty")

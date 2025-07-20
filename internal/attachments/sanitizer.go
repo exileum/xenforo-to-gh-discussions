@@ -2,6 +2,7 @@ package attachments
 
 import (
 	"errors"
+	"fmt"
 	"path/filepath"
 	"strings"
 )
@@ -46,18 +47,18 @@ func (s *FileSanitizer) ValidatePath(filePath, baseDir string) error {
 	// Get absolute paths for security check
 	absBaseDir, err := filepath.Abs(cleanBaseDir)
 	if err != nil {
-		return errors.New("failed to get absolute path for base directory: " + err.Error())
+		return fmt.Errorf("failed to get absolute path for base directory: %w", err)
 	}
 
 	absFilePath, err := filepath.Abs(cleanFilePath)
 	if err != nil {
-		return errors.New("failed to get absolute path for file: " + err.Error())
+		return fmt.Errorf("failed to get absolute path for file: %w", err)
 	}
 
 	// Use filepath.Rel to compute the relative path from baseDir to filePath
 	relPath, err := filepath.Rel(absBaseDir, absFilePath)
 	if err != nil {
-		return errors.New("failed to compute relative path: " + err.Error())
+		return fmt.Errorf("failed to compute relative path: %w", err)
 	}
 
 	// Check if the relative path escapes the base directory

@@ -147,6 +147,13 @@ golangci-lint: ## Run golangci-lint (requires golangci-lint to be installed)
 		echo "$(YELLOW)golangci-lint not installed. Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest$(RESET)"; \
 	fi
 
+.PHONY: cyclo
+cyclo: ## Run cyclomatic complexity analysis and fail if any function > 10
+	@echo "$(CYAN)Running cyclomatic complexity analysis...$(RESET)"
+	@command -v gocyclo > /dev/null || (echo "$(RED)gocyclo not installed. Install with: go install github.com/fzipp/gocyclo/cmd/gocyclo@latest$(RESET)" && exit 1)
+	@gocyclo -over 10 -ignore "vendor/|testdata/|mock|_test\.go$$" ./cmd ./internal || (echo "$(RED)Cyclomatic complexity check failed$(RESET)" && exit 1)
+	@echo "$(GREEN)Cyclomatic complexity check passed$(RESET)"
+
 ##@ Dependencies
 .PHONY: deps
 deps: ## Download and verify dependencies
@@ -211,7 +218,7 @@ version: ## Show version information
 	@echo "  Platform: $(GOOS)/$(GOARCH)"
 
 .PHONY: check
-check: lint test ## Run pre-commit checks (lint + test)
+check: lint cyclo test ## Run pre-commit checks (lint + cyclo + test)
 	@echo "$(GREEN)All checks passed - ready to commit!$(RESET)"
 
 .PHONY: run

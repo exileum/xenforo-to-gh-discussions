@@ -1,3 +1,6 @@
+// Package bbcode provides BB-code to Markdown conversion functionality.
+// It handles XenForo's BB-code format and converts it to GitHub-flavored Markdown,
+// including support for quotes, formatting, links, images, spoilers, and media embeds.
 package bbcode
 
 import (
@@ -7,12 +10,26 @@ import (
 	"github.com/dlclark/regexp2"
 )
 
+// Converter converts BB-code formatted text to GitHub-flavored Markdown.
+// Supports XenForo-style BB-code including quotes, formatting, links,
+// images, spoilers, and media embeds.
 type Converter struct{}
 
+// NewConverter creates a new BB-code to Markdown converter.
+// Returns a converter ready to process XenForo BB-code content.
 func NewConverter() *Converter {
 	return &Converter{}
 }
 
+// ToMarkdown converts BB-code formatted text to GitHub-flavored Markdown.
+// Handles quotes, formatting, links, images, spoilers, and media embeds.
+// Returns an empty string for empty or whitespace-only input.
+//
+// Example:
+//
+//	converter := NewConverter()
+//	markdown := converter.ToMarkdown("[b]Bold text[/b]")
+//	// Result: "**Bold text**"
 func (c *Converter) ToMarkdown(bbcode string) string {
 	if strings.TrimSpace(bbcode) == "" {
 		return ""

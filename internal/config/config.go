@@ -1,3 +1,6 @@
+// Package config provides configuration management for the XenForo to GitHub
+// Discussions migration tool. It supports both interactive prompts and
+// environment variable configuration, with comprehensive validation.
 package config
 
 import (
@@ -6,6 +9,9 @@ import (
 	"time"
 )
 
+// Config holds all configuration settings for the migration tool.
+// It aggregates XenForo source settings, GitHub destination settings,
+// migration behavior controls, and filesystem configuration.
 type Config struct {
 	XenForo    XenForoConfig
 	GitHub     GitHubConfig
@@ -13,16 +19,20 @@ type Config struct {
 	Filesystem FilesystemConfig
 }
 
+// XenForoConfig contains XenForo forum API connection settings.
+// All fields are required for successful forum data retrieval.
 type XenForoConfig struct {
-	APIURL  string
-	APIKey  string
-	APIUser string
-	NodeID  int
+	APIURL  string // Base URL for XenForo API (e.g., "https://forum.example.com/api")
+	APIKey  string // XenForo API key for authentication
+	APIUser string // XenForo user ID for API requests
+	NodeID  int    // Forum node/category ID to migrate
 }
 
+// GitHubConfig contains GitHub API connection and rate limiting settings.
+// Supports both legacy multi-category mapping and single-category migration.
 type GitHubConfig struct {
-	Token                string
-	Repository           string
+	Token                string         // GitHub personal access token
+	Repository           string         // Target repository in "owner/repo" format
 	Categories           map[int]string // Kept for backward compatibility
 	XenForoNodeID        int            // Single source category
 	GitHubCategoryID     string         // Single target category
@@ -31,20 +41,26 @@ type GitHubConfig struct {
 	RetryBackoffMultiple int            // Multiplier for exponential backoff (seconds)
 }
 
+// MigrationConfig controls migration behavior and retry logic.
+// Provides options for dry-run testing and verbose output.
 type MigrationConfig struct {
-	MaxRetries   int
-	DryRun       bool
-	Verbose      bool
+	MaxRetries   int  // Maximum retries for failed operations
+	DryRun       bool // Enable dry-run mode (no actual changes)
+	Verbose      bool // Enable verbose logging
 	ResumeFrom   int
 	ProgressFile string
 	UserMapping  map[int]int
 }
 
+// FilesystemConfig contains settings for file attachment handling.
+// Controls where attachments are stored and download rate limiting.
 type FilesystemConfig struct {
-	AttachmentsDir           string
-	AttachmentRateLimitDelay time.Duration
+	AttachmentsDir           string        // Directory for storing downloaded attachments
+	AttachmentRateLimitDelay time.Duration // Delay between attachment downloads
 }
 
+// New creates a new Config with default values populated from environment variables.
+// Falls back to placeholder values if environment variables are not set.
 func New() *Config {
 	return &Config{
 		XenForo: XenForoConfig{

@@ -1,3 +1,6 @@
+// Package progress provides migration progress tracking and persistence.
+// It maintains state of completed and failed thread migrations, with JSON
+// persistence for recovery and resumption of interrupted migrations.
 package progress
 
 import (

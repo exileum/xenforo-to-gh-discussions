@@ -1,3 +1,6 @@
+// Package migration orchestrates the migration process from XenForo forums
+// to GitHub Discussions. It coordinates XenForo data retrieval, content conversion,
+// GitHub API interactions, progress tracking, and error recovery.
 package migration
 
 import (
@@ -11,16 +14,24 @@ import (
 	"github.com/exileum/xenforo-to-gh-discussions/internal/xenforo"
 )
 
+// Migrator orchestrates the complete migration process from XenForo to GitHub Discussions.
+// Coordinates all subsystems including data retrieval, content conversion, and progress tracking.
 type Migrator struct {
-	config *config.Config
+	config *config.Config // Migration configuration
 }
 
+// NewMigrator creates a new migration orchestrator with the provided configuration.
+// The configuration should be validated before creating the migrator.
 func NewMigrator(cfg *config.Config) *Migrator {
 	return &Migrator{
 		config: cfg,
 	}
 }
 
+// Run executes the complete migration process with the given context.
+// Validates configuration, initializes all subsystems, and coordinates
+// the migration of threads from XenForo to GitHub Discussions.
+// Returns an error if any critical step fails.
 func (m *Migrator) Run(ctx context.Context) error {
 	// Validate configuration
 	if err := m.config.Validate(); err != nil {
