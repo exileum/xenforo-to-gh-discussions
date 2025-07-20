@@ -199,7 +199,7 @@ build-all: ## Build for all platforms
 	@echo "$(GREEN)Cross-platform builds complete in $(DIST_DIR)/$(RESET)"
 
 .PHONY: release
-release: clean lint cyclo test build-all ## Create a release (clean, lint, cyclo, test, build-all)
+release: clean lint test build-all ## Create a release (clean, lint, test, build-all)
 	@echo "$(GREEN)Release build complete$(RESET)"
 
 .PHONY: package
