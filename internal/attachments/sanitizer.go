@@ -1,6 +1,7 @@
 package attachments
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -13,9 +14,16 @@ func NewFileSanitizer() *FileSanitizer {
 	return &FileSanitizer{}
 }
 
-func (s *FileSanitizer) SanitizeFilename(filename string) string {
+func (s *FileSanitizer) SanitizeFilename(ctx context.Context, filename string) (string, error) {
+	// Check context cancellation
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	default:
+	}
+
 	if filename == "" {
-		return "unnamed_file"
+		return "unnamed_file", nil
 	}
 
 	// Check if filename is local (no path traversal)
@@ -33,13 +41,20 @@ func (s *FileSanitizer) SanitizeFilename(filename string) string {
 	// Trim whitespace and ensure not empty
 	filename = strings.TrimSpace(filename)
 	if filename == "" {
-		return "unnamed_file"
+		return "unnamed_file", nil
 	}
 
-	return filename
+	return filename, nil
 }
 
-func (s *FileSanitizer) ValidatePath(filePath, baseDir string) error {
+func (s *FileSanitizer) ValidatePath(ctx context.Context, filePath, baseDir string) error {
+	// Check context cancellation
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
 	// Clean and normalize both paths
 	cleanFilePath := filepath.Clean(filePath)
 	cleanBaseDir := filepath.Clean(baseDir)

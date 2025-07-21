@@ -121,7 +121,7 @@ func (r *InteractiveRunner) handleMigrationError(err error, cfg *config.Config) 
 		fmt.Println("Skipping current thread...")
 
 		// Get current progress to find last processed thread
-		tracker, err := progress.NewTracker(cfg.Migration.ProgressFile, false)
+		tracker, err := progress.NewTracker(context.Background(), cfg.Migration.ProgressFile, false)
 		if err != nil {
 			fmt.Printf("Warning: Could not load progress file: %v\n", err)
 			return
@@ -143,7 +143,7 @@ func (r *InteractiveRunner) handleMigrationError(err error, cfg *config.Config) 
 
 // getLastProcessedID reads the progress file to get the last processed thread ID
 func (r *InteractiveRunner) getLastProcessedID(cfg *config.Config) int {
-	tracker, err := progress.NewTracker(cfg.Migration.ProgressFile, true) // dryRun=true just for reading
+	tracker, err := progress.NewTracker(context.Background(), cfg.Migration.ProgressFile, true) // dryRun=true just for reading
 	if err != nil {
 		return 0
 	}

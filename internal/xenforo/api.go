@@ -1,6 +1,7 @@
 package xenforo
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -28,13 +29,21 @@ func (c *Client) TestConnection() error {
 	return nil
 }
 
-func (c *Client) GetThreads(nodeID int) ([]Thread, error) {
+func (c *Client) GetThreads(ctx context.Context, nodeID int) ([]Thread, error) {
 	var threads []Thread
 	page := 1
 
 	for {
+		// Check context cancellation before each iteration
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
 		resp, err := c.retryableRequest(func() (*resty.Response, error) {
 			return c.addHeaders(c.client.R()).
+				SetContext(ctx).
 				SetQueryParam("page", fmt.Sprintf("%d", page)).
 				Get(fmt.Sprintf("%s/forums/%d/threads", c.baseURL, nodeID))
 		})
@@ -59,14 +68,27 @@ func (c *Client) GetThreads(nodeID int) ([]Thread, error) {
 		}
 
 		page++
-		time.Sleep(1 * time.Second)
+
+		// Check context before sleep
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(1 * time.Second):
+		}
 	}
 
 	return threads, nil
 }
 
-func (c *Client) GetPosts(thread Thread) ([]Post, error) {
+func (c *Client) GetPosts(ctx context.Context, thread Thread) ([]Post, error) {
 	var posts []Post
+
+	// Check context cancellation
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
 
 	// Calculate total posts: reply_count + 1 (original post)
 	totalPosts := thread.ReplyCount + 1
@@ -74,6 +96,7 @@ func (c *Client) GetPosts(thread Thread) ([]Post, error) {
 	// Start with first page to determine posts per page
 	firstPageResp, err := c.retryableRequest(func() (*resty.Response, error) {
 		return c.addHeaders(c.client.R()).
+			SetContext(ctx).
 			SetQueryParam("page", "1").
 			Get(fmt.Sprintf("%s/threads/%d/posts", c.baseURL, thread.ThreadID))
 	})
@@ -104,8 +127,16 @@ func (c *Client) GetPosts(thread Thread) ([]Post, error) {
 
 	// Fetch remaining pages
 	for page := 2; page <= totalPages; page++ {
+		// Check context cancellation before each iteration
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
 		resp, err := c.retryableRequest(func() (*resty.Response, error) {
 			return c.addHeaders(c.client.R()).
+				SetContext(ctx).
 				SetQueryParam("page", fmt.Sprintf("%d", page)).
 				Get(fmt.Sprintf("%s/threads/%d/posts", c.baseURL, thread.ThreadID))
 		})
@@ -130,7 +161,12 @@ func (c *Client) GetPosts(thread Thread) ([]Post, error) {
 			break
 		}
 
-		time.Sleep(1 * time.Second)
+		// Check context before sleep
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(1 * time.Second):
+		}
 	}
 
 	return posts, nil
@@ -155,9 +191,9 @@ func (c *Client) DownloadAttachment(url, filepath string) error {
 }
 
 // GetDryRunStats returns statistics for a node by fetching actual data
-func (c *Client) GetDryRunStats(nodeID int) (threadCount, postCount, attachmentCount, userCount int, err error) {
+func (c *Client) GetDryRunStats(ctx context.Context, nodeID int) (threadCount, postCount, attachmentCount, userCount int, err error) {
 	// Get all threads from the node using our working GetThreads method
-	threads, err := c.GetThreads(nodeID)
+	threads, err := c.GetThreads(ctx, nodeID)
 	if err != nil {
 		return 0, 0, 0, 0, fmt.Errorf("failed to get threads: %w", err)
 	}

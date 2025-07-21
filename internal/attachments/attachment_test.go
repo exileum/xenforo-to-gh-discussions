@@ -1,6 +1,7 @@
 package attachments
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
@@ -45,7 +46,10 @@ func TestFileSanitizer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := sanitizer.SanitizeFilename(tt.input)
+			result, err := sanitizer.SanitizeFilename(context.Background(), tt.input)
+			if err != nil {
+				t.Fatalf("SanitizeFilename failed: %v", err)
+			}
 			if result != tt.expected {
 				t.Errorf("Expected %q, got %q", tt.expected, result)
 			}
@@ -232,7 +236,7 @@ func TestValidatePath(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			err := sanitizer.ValidatePath(tt.filePath, tt.baseDir)
+			err := sanitizer.ValidatePath(context.Background(), tt.filePath, tt.baseDir)
 
 			if tt.shouldErr {
 				if err == nil {

@@ -61,7 +61,7 @@ func (m *Migrator) Run(ctx context.Context) error {
 	}
 
 	// Initialize progress tracker
-	tracker, err := progress.NewTracker(m.config.Migration.ProgressFile, m.config.Migration.DryRun)
+	tracker, err := progress.NewTracker(ctx, m.config.Migration.ProgressFile, m.config.Migration.DryRun)
 	if err != nil {
 		return fmt.Errorf("failed to initialize progress tracker: %w", err)
 	}

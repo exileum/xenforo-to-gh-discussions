@@ -1,6 +1,7 @@
 package bbcode
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"regexp"
@@ -81,12 +82,15 @@ Original Thread ID: %d
 	return formatted, nil
 }
 
-func (p *MessageProcessor) ProcessContent(content string) string {
-	result := p.converter.ToMarkdown(content)
+func (p *MessageProcessor) ProcessContent(ctx context.Context, content string) (string, error) {
+	result, err := p.converter.ToMarkdown(ctx, content)
+	if err != nil {
+		return "", err
+	}
 
 	result = p.convertAtMentions(result)
 
-	return result
+	return result, nil
 }
 
 // convertAtMentions converts @username patterns to **username** bold format
