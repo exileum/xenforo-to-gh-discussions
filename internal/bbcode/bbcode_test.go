@@ -1,6 +1,7 @@
 package bbcode
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -59,7 +60,10 @@ func TestBBCodeConverter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := converter.ToMarkdown(tt.input)
+			result, err := converter.ToMarkdown(context.Background(), tt.input)
+			if err != nil {
+				t.Fatalf("ToMarkdown failed: %v", err)
+			}
 			if result != tt.expected {
 				t.Errorf("Expected %q, got %q", tt.expected, result)
 			}
