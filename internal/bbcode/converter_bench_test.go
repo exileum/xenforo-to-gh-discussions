@@ -193,7 +193,7 @@ func BenchmarkMessageProcessor_ProcessContent(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = processor.ProcessContent(content)
+		_, _ = processor.ProcessContent(context.Background(), content)
 	}
 }
 

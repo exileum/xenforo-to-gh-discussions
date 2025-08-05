@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/exileum/xenforo-to-gh-discussions/internal/util"
 	"github.com/go-resty/resty/v2"
 )
 
@@ -37,7 +38,7 @@ func (c *Client) GetThreads(ctx context.Context, nodeID int) ([]Thread, error) {
 		// Check context cancellation before each iteration
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, fmt.Errorf("thread fetching cancelled at page %d: %w", page, ctx.Err())
 		default:
 		}
 
@@ -70,10 +71,8 @@ func (c *Client) GetThreads(ctx context.Context, nodeID int) ([]Thread, error) {
 		page++
 
 		// Check context before sleep
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(1 * time.Second):
+		if err := util.ContextSleep(ctx, 1*time.Second); err != nil {
+			return nil, fmt.Errorf("thread fetch rate limit interrupted at page %d: %w", page, err)
 		}
 	}
 
@@ -86,7 +85,7 @@ func (c *Client) GetPosts(ctx context.Context, thread Thread) ([]Post, error) {
 	// Check context cancellation
 	select {
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return nil, fmt.Errorf("post fetching cancelled for thread %d: %w", thread.ThreadID, ctx.Err())
 	default:
 	}
 
@@ -130,7 +129,7 @@ func (c *Client) GetPosts(ctx context.Context, thread Thread) ([]Post, error) {
 		// Check context cancellation before each iteration
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, fmt.Errorf("post fetching cancelled at page %d: %w", page, ctx.Err())
 		default:
 		}
 
@@ -162,10 +161,8 @@ func (c *Client) GetPosts(ctx context.Context, thread Thread) ([]Post, error) {
 		}
 
 		// Check context before sleep
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(1 * time.Second):
+		if err := util.ContextSleep(ctx, 1*time.Second); err != nil {
+			return nil, fmt.Errorf("post fetch rate limit interrupted at page %d: %w", page, err)
 		}
 	}
 

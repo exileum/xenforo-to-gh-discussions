@@ -75,7 +75,10 @@ func TestMessageProcessor(t *testing.T) {
 	processor := NewMessageProcessor()
 
 	content := "[b]Test message[/b]"
-	result := processor.ProcessContent(content)
+	result, err := processor.ProcessContent(context.Background(), content)
+	if err != nil {
+		t.Fatalf("ProcessContent failed: %v", err)
+	}
 	expected := "**Test message**"
 
 	if result != expected {
@@ -135,7 +138,10 @@ func TestAtMentionConversion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := processor.ProcessContent(tt.input)
+			result, err := processor.ProcessContent(context.Background(), tt.input)
+			if err != nil {
+				t.Fatalf("ProcessContent failed: %v", err)
+			}
 			if result != tt.expected {
 				t.Errorf("Expected %q, got %q", tt.expected, result)
 			}

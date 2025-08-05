@@ -11,6 +11,7 @@ import (
 	"github.com/exileum/xenforo-to-gh-discussions/internal/config"
 	"github.com/exileum/xenforo-to-gh-discussions/internal/github"
 	"github.com/exileum/xenforo-to-gh-discussions/internal/progress"
+	"github.com/exileum/xenforo-to-gh-discussions/internal/util"
 	"github.com/exileum/xenforo-to-gh-discussions/internal/xenforo"
 )
 
@@ -49,7 +50,7 @@ func (r *Runner) RunMigration(ctx context.Context) error {
 		// Check context cancellation before each thread
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return fmt.Errorf("migration cancelled at thread %d: %w", thread.ThreadID, ctx.Err())
 		default:
 		}
 
@@ -73,6 +74,13 @@ func (r *Runner) RunMigration(ctx context.Context) error {
 }
 
 func (r *Runner) processThread(ctx context.Context, thread xenforo.Thread) error {
+	// Apply operation timeout if configured
+	if r.config.Migration.OperationTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, r.config.Migration.OperationTimeout)
+		defer cancel()
+	}
+
 	posts, err := r.fetchPosts(ctx, thread)
 	if err != nil {
 		return err
@@ -121,7 +129,7 @@ func (r *Runner) processPosts(ctx context.Context, thread xenforo.Thread, posts 
 		// Check context cancellation before each post
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return fmt.Errorf("post processing cancelled at post %d: %w", j+1, ctx.Err())
 		default:
 		}
 
@@ -143,10 +151,8 @@ func (r *Runner) processPosts(ctx context.Context, thread xenforo.Thread, posts 
 
 		if !r.config.Migration.DryRun {
 			// Context-aware sleep
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(1 * time.Second):
+			if err := util.ContextSleep(ctx, 1*time.Second); err != nil {
+				return fmt.Errorf("rate limit sleep interrupted after post %d: %w", j+1, err)
 			}
 		}
 	}
@@ -159,7 +165,7 @@ func (r *Runner) formatPost(ctx context.Context, post xenforo.Post, threadID int
 	if err != nil {
 		return "", fmt.Errorf("failed to process BB code content: %w", err)
 	}
-	
+
 	markdown, err = r.downloader.ReplaceAttachmentLinks(ctx, markdown, threadAttachments)
 	if err != nil {
 		return "", fmt.Errorf("failed to replace attachment links: %w", err)
@@ -174,6 +180,13 @@ func (r *Runner) formatPost(ctx context.Context, post xenforo.Post, threadID int
 }
 
 func (r *Runner) createDiscussion(ctx context.Context, thread xenforo.Thread, body string) (string, int, error) {
+	// Apply request timeout if configured
+	if r.config.Migration.RequestTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, r.config.Migration.RequestTimeout)
+		defer cancel()
+	}
+
 	categoryID := r.config.GitHub.GitHubCategoryID
 
 	if r.config.Migration.DryRun {
@@ -193,6 +206,13 @@ func (r *Runner) createDiscussion(ctx context.Context, thread xenforo.Thread, bo
 }
 
 func (r *Runner) addComment(ctx context.Context, post xenforo.Post, discussionID, body string) error {
+	// Apply request timeout if configured
+	if r.config.Migration.RequestTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, r.config.Migration.RequestTimeout)
+		defer cancel()
+	}
+
 	if r.config.Migration.DryRun {
 		log.Printf("  [DRY-RUN] Would add comment by %s", post.Username)
 		if r.config.Migration.Verbose {

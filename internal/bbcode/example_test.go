@@ -107,7 +107,7 @@ func ExampleMessageProcessor_ProcessContent() {
 	processor := NewMessageProcessor()
 
 	content := "Hello @username, check this [url=https://example.com]link[/url]!"
-	processed := processor.ProcessContent(content)
+	processed, _ := processor.ProcessContent(context.Background(), content)
 
 	fmt.Println(processed)
 	// Output: Hello **username**, check this [link](https://example.com)!
@@ -119,7 +119,7 @@ func ExampleNewMessageProcessor() {
 
 	// Process BBCode content with @mentions
 	content := "Hey @alice, this [b]works great[/b]!"
-	result := processor.ProcessContent(content)
+	result, _ := processor.ProcessContent(context.Background(), content)
 
 	fmt.Println(result)
 	// Output: Hey **alice**, this **works great**!

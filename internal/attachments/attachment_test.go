@@ -79,7 +79,7 @@ func TestDownloader(t *testing.T) {
 	}
 
 	// Test in dry-run mode (should not download)
-	err := downloader.DownloadAttachments(attachments)
+	err := downloader.DownloadAttachments(context.Background(), attachments)
 	if err != nil {
 		t.Errorf("Dry run should not return error: %v", err)
 	}
@@ -104,7 +104,10 @@ func TestReplaceAttachmentLinks(t *testing.T) {
 		},
 	}
 
-	result := downloader.ReplaceAttachmentLinks(message, attachments)
+	result, err := downloader.ReplaceAttachmentLinks(context.Background(), message, attachments)
+	if err != nil {
+		t.Fatalf("ReplaceAttachmentLinks failed: %v", err)
+	}
 
 	// Should replace image with Markdown image syntax
 	if !strings.Contains(result, "![image.png](./png/attachment_1_image.png)") {
@@ -292,7 +295,7 @@ func TestDownloaderRateLimiting(t *testing.T) {
 
 			// Measure execution time
 			start := time.Now()
-			err := downloader.DownloadAttachments(attachments)
+			err := downloader.DownloadAttachments(context.Background(), attachments)
 			elapsed := time.Since(start)
 
 			if err != nil {

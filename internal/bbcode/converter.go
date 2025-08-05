@@ -5,6 +5,7 @@ package bbcode
 
 import (
 	"context"
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -40,7 +41,7 @@ func (c *Converter) ToMarkdown(ctx context.Context, bbcode string) (string, erro
 	// Check context cancellation
 	select {
 	case <-ctx.Done():
-		return "", ctx.Err()
+		return "", fmt.Errorf("BBCode conversion cancelled: %w", ctx.Err())
 	default:
 	}
 
@@ -52,7 +53,7 @@ func (c *Converter) ToMarkdown(ctx context.Context, bbcode string) (string, erro
 	// Check context after heavy processing
 	select {
 	case <-ctx.Done():
-		return "", ctx.Err()
+		return "", fmt.Errorf("BBCode conversion cancelled after code blocks: %w", ctx.Err())
 	default:
 	}
 
@@ -62,7 +63,7 @@ func (c *Converter) ToMarkdown(ctx context.Context, bbcode string) (string, erro
 	// Check context after complex quote processing
 	select {
 	case <-ctx.Done():
-		return "", ctx.Err()
+		return "", fmt.Errorf("BBCode conversion cancelled after quote processing: %w", ctx.Err())
 	default:
 	}
 

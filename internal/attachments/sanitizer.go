@@ -18,7 +18,7 @@ func (s *FileSanitizer) SanitizeFilename(ctx context.Context, filename string) (
 	// Check context cancellation
 	select {
 	case <-ctx.Done():
-		return "", ctx.Err()
+		return "", fmt.Errorf("filename sanitization cancelled: %w", ctx.Err())
 	default:
 	}
 
@@ -51,7 +51,7 @@ func (s *FileSanitizer) ValidatePath(ctx context.Context, filePath, baseDir stri
 	// Check context cancellation
 	select {
 	case <-ctx.Done():
-		return ctx.Err()
+		return fmt.Errorf("path validation cancelled: %w", ctx.Err())
 	default:
 	}
 

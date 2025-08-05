@@ -209,7 +209,7 @@ func (r *InteractiveRunner) runDryRun(cfg *config.Config) error {
 	client := xenforo.NewClient(cfg.XenForo.APIURL, cfg.XenForo.APIKey, cfg.XenForo.APIUser, cfg.Migration.MaxRetries)
 
 	// Get statistics from XenForo API
-	threadCount, postCount, attachmentCount, userCount, err := client.GetDryRunStats(cfg.GitHub.XenForoNodeID)
+	threadCount, postCount, attachmentCount, userCount, err := client.GetDryRunStats(context.Background(), cfg.GitHub.XenForoNodeID)
 	if err != nil {
 		return fmt.Errorf("failed to get dry run statistics: %w", err)
 	}

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/exileum/xenforo-to-gh-discussions/internal/util"
 	"github.com/exileum/xenforo-to-gh-discussions/internal/xenforo"
 )
 
@@ -43,7 +44,7 @@ func (d *Downloader) DownloadAttachments(ctx context.Context, attachments []xenf
 		// Check context cancellation before each attachment
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return fmt.Errorf("attachment download cancelled: %w", ctx.Err())
 		default:
 		}
 
@@ -64,7 +65,7 @@ func (d *Downloader) downloadSingle(ctx context.Context, attachment xenforo.Atta
 	// Check context cancellation
 	select {
 	case <-ctx.Done():
-		return ctx.Err()
+		return fmt.Errorf("download cancelled for attachment %d: %w", attachment.AttachmentID, ctx.Err())
 	default:
 	}
 
@@ -104,10 +105,8 @@ func (d *Downloader) downloadSingle(ctx context.Context, attachment xenforo.Atta
 
 	// Configurable rate limiting with context awareness
 	if d.rateLimitDelay > 0 {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(d.rateLimitDelay):
+		if err := util.ContextSleep(ctx, d.rateLimitDelay); err != nil {
+			return fmt.Errorf("rate limit sleep interrupted: %w", err)
 		}
 	}
 
@@ -127,7 +126,7 @@ func (d *Downloader) ReplaceAttachmentLinks(ctx context.Context, message string,
 		// Check context cancellation before each attachment
 		select {
 		case <-ctx.Done():
-			return "", ctx.Err()
+			return "", fmt.Errorf("attachment link replacement cancelled: %w", ctx.Err())
 		default:
 		}
 

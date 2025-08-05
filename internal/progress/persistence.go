@@ -3,6 +3,7 @@ package progress
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 )
@@ -21,7 +22,7 @@ func (p *Persistence) Load(ctx context.Context) (*MigrationProgress, error) {
 	// Check context cancellation
 	select {
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return nil, fmt.Errorf("progress load cancelled: %w", ctx.Err())
 	default:
 	}
 
@@ -52,7 +53,7 @@ func (p *Persistence) Save(ctx context.Context, progress *MigrationProgress) err
 	// Check context cancellation
 	select {
 	case <-ctx.Done():
-		return ctx.Err()
+		return fmt.Errorf("progress save cancelled: %w", ctx.Err())
 	default:
 	}
 

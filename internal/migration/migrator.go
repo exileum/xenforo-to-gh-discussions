@@ -46,6 +46,11 @@ func (m *Migrator) Run(ctx context.Context) error {
 		m.config.Migration.MaxRetries,
 	)
 
+	// Set request timeout if configured
+	if m.config.Migration.RequestTimeout > 0 {
+		xenforoClient.SetTimeout(m.config.Migration.RequestTimeout)
+	}
+
 	var githubClient *github.Client
 	if !m.config.Migration.DryRun {
 		var err error
