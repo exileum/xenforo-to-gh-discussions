@@ -1,12 +1,12 @@
 module github.com/exileum/xenforo-to-gh-discussions
 
-go 1.24
+go 1.24.0
 
 require (
 	github.com/dlclark/regexp2 v1.11.5
 	github.com/go-resty/resty/v2 v2.16.5
 	github.com/shurcooL/githubv4 v0.0.0-20240727222349-48295856cce7
-	golang.org/x/oauth2 v0.30.0
+	golang.org/x/oauth2 v0.32.0
 )
 
 require (
