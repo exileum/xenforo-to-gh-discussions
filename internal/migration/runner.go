@@ -11,6 +11,7 @@ import (
 	"github.com/exileum/xenforo-to-gh-discussions/internal/config"
 	"github.com/exileum/xenforo-to-gh-discussions/internal/github"
 	"github.com/exileum/xenforo-to-gh-discussions/internal/progress"
+	"github.com/exileum/xenforo-to-gh-discussions/internal/util"
 	"github.com/exileum/xenforo-to-gh-discussions/internal/xenforo"
 )
 
@@ -36,7 +37,7 @@ func NewRunner(cfg *config.Config, xenforoClient *xenforo.Client, githubClient *
 
 func (r *Runner) RunMigration(ctx context.Context) error {
 	log.Printf("Fetching threads from forum node %d...", r.config.GitHub.XenForoNodeID)
-	threads, err := r.xenforoClient.GetThreads(r.config.GitHub.XenForoNodeID)
+	threads, err := r.xenforoClient.GetThreads(ctx, r.config.GitHub.XenForoNodeID)
 	if err != nil {
 		return err
 	}
@@ -46,17 +47,24 @@ func (r *Runner) RunMigration(ctx context.Context) error {
 	log.Printf("✓ %d threads remaining after filtering completed ones", len(threads))
 
 	for i, thread := range threads {
+		// Check context cancellation before each thread
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("migration cancelled at thread %d: %w", thread.ThreadID, ctx.Err())
+		default:
+		}
+
 		log.Printf("\nProcessing thread %d/%d: %s", i+1, len(threads), thread.Title)
 
 		if err := r.processThread(ctx, thread); err != nil {
 			log.Printf("✗ Failed to process thread %d: %v", thread.ThreadID, err)
-			if markErr := r.tracker.MarkFailed(thread.ThreadID); markErr != nil {
+			if markErr := r.tracker.MarkFailed(ctx, thread.ThreadID); markErr != nil {
 				log.Printf("✗ Warning: Failed to mark thread %d as failed in progress tracker: %v", thread.ThreadID, markErr)
 			}
 			continue
 		}
 
-		if err := r.tracker.MarkCompleted(thread.ThreadID); err != nil {
+		if err := r.tracker.MarkCompleted(ctx, thread.ThreadID); err != nil {
 			log.Printf("✗ Warning: Failed to mark thread %d as completed in progress tracker: %v", thread.ThreadID, err)
 		}
 	}
@@ -66,13 +74,20 @@ func (r *Runner) RunMigration(ctx context.Context) error {
 }
 
 func (r *Runner) processThread(ctx context.Context, thread xenforo.Thread) error {
-	posts, err := r.fetchPosts(thread)
+	// Apply operation timeout if configured
+	if r.config.Migration.OperationTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, r.config.Migration.OperationTimeout)
+		defer cancel()
+	}
+
+	posts, err := r.fetchPosts(ctx, thread)
 	if err != nil {
 		return err
 	}
 
 	threadAttachments := r.collectAttachments(posts)
-	if err := r.downloadAttachments(thread.ThreadID, threadAttachments); err != nil {
+	if err := r.downloadAttachments(ctx, thread.ThreadID, threadAttachments); err != nil {
 		// Log warning but continue processing
 		log.Printf("✗ Warning: Failed to download attachments for thread %d: %v", thread.ThreadID, err)
 	}
@@ -80,8 +95,8 @@ func (r *Runner) processThread(ctx context.Context, thread xenforo.Thread) error
 	return r.processPosts(ctx, thread, posts, threadAttachments)
 }
 
-func (r *Runner) fetchPosts(thread xenforo.Thread) ([]xenforo.Post, error) {
-	posts, err := r.xenforoClient.GetPosts(thread)
+func (r *Runner) fetchPosts(ctx context.Context, thread xenforo.Thread) ([]xenforo.Post, error) {
+	posts, err := r.xenforoClient.GetPosts(ctx, thread)
 	if err != nil {
 		return nil, err
 	}
@@ -97,21 +112,28 @@ func (r *Runner) collectAttachments(posts []xenforo.Post) []xenforo.Attachment {
 	return threadAttachments
 }
 
-func (r *Runner) downloadAttachments(threadID int, attachments []xenforo.Attachment) error {
+func (r *Runner) downloadAttachments(ctx context.Context, threadID int, attachments []xenforo.Attachment) error {
 	if len(attachments) == 0 {
 		return nil
 	}
 
 	log.Printf("  ✓ Found %d attachments across all posts", len(attachments))
 	log.Printf("  Downloading attachments...")
-	return r.downloader.DownloadAttachments(attachments)
+	return r.downloader.DownloadAttachments(ctx, attachments)
 }
 
 func (r *Runner) processPosts(ctx context.Context, thread xenforo.Thread, posts []xenforo.Post, threadAttachments []xenforo.Attachment) error {
 	var discussionID string
 
 	for j, post := range posts {
-		body, err := r.formatPost(post, thread.ThreadID, threadAttachments)
+		// Check context cancellation before each post
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("post processing cancelled at post %d: %w", j+1, ctx.Err())
+		default:
+		}
+
+		body, err := r.formatPost(ctx, post, thread.ThreadID, threadAttachments)
 		if err != nil {
 			return err
 		}
@@ -128,16 +150,26 @@ func (r *Runner) processPosts(ctx context.Context, thread xenforo.Thread, posts 
 		}
 
 		if !r.config.Migration.DryRun {
-			time.Sleep(1 * time.Second)
+			// Context-aware sleep
+			if err := util.ContextSleep(ctx, 1*time.Second); err != nil {
+				return fmt.Errorf("rate limit sleep interrupted after post %d: %w", j+1, err)
+			}
 		}
 	}
 
 	return nil
 }
 
-func (r *Runner) formatPost(post xenforo.Post, threadID int, threadAttachments []xenforo.Attachment) (string, error) {
-	markdown := r.processor.ProcessContent(post.Message)
-	markdown = r.downloader.ReplaceAttachmentLinks(markdown, threadAttachments)
+func (r *Runner) formatPost(ctx context.Context, post xenforo.Post, threadID int, threadAttachments []xenforo.Attachment) (string, error) {
+	markdown, err := r.processor.ProcessContent(ctx, post.Message)
+	if err != nil {
+		return "", fmt.Errorf("failed to process BB code content: %w", err)
+	}
+
+	markdown, err = r.downloader.ReplaceAttachmentLinks(ctx, markdown, threadAttachments)
+	if err != nil {
+		return "", fmt.Errorf("failed to replace attachment links: %w", err)
+	}
 
 	body, err := r.processor.FormatMessage(post.Username, post.PostDate, threadID, markdown)
 	if err != nil {
@@ -148,6 +180,13 @@ func (r *Runner) formatPost(post xenforo.Post, threadID int, threadAttachments [
 }
 
 func (r *Runner) createDiscussion(ctx context.Context, thread xenforo.Thread, body string) (string, int, error) {
+	// Apply request timeout if configured
+	if r.config.Migration.RequestTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, r.config.Migration.RequestTimeout)
+		defer cancel()
+	}
+
 	categoryID := r.config.GitHub.GitHubCategoryID
 
 	if r.config.Migration.DryRun {
@@ -167,6 +206,13 @@ func (r *Runner) createDiscussion(ctx context.Context, thread xenforo.Thread, bo
 }
 
 func (r *Runner) addComment(ctx context.Context, post xenforo.Post, discussionID, body string) error {
+	// Apply request timeout if configured
+	if r.config.Migration.RequestTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, r.config.Migration.RequestTimeout)
+		defer cancel()
+	}
+
 	if r.config.Migration.DryRun {
 		log.Printf("  [DRY-RUN] Would add comment by %s", post.Username)
 		if r.config.Migration.Verbose {
