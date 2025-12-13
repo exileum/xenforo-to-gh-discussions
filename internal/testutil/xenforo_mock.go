@@ -1,6 +1,7 @@
 package testutil
 
 import (
+	"context"
 	"errors"
 
 	"github.com/exileum/xenforo-to-gh-discussions/internal/xenforo"
@@ -8,8 +9,8 @@ import (
 
 type XenForoClient struct {
 	TestConnectionFunc     func() error
-	GetThreadsFunc         func(nodeID int) ([]xenforo.Thread, error)
-	GetPostsFunc           func(thread xenforo.Thread) ([]xenforo.Post, error)
+	GetThreadsFunc         func(ctx context.Context, nodeID int) ([]xenforo.Thread, error)
+	GetPostsFunc           func(ctx context.Context, thread xenforo.Thread) ([]xenforo.Post, error)
 	DownloadAttachmentFunc func(url, filepath string) error
 }
 
@@ -20,16 +21,16 @@ func (m *XenForoClient) TestConnection() error {
 	return errors.New("TestConnectionFunc not set - test must explicitly set mock behavior")
 }
 
-func (m *XenForoClient) GetThreads(nodeID int) ([]xenforo.Thread, error) {
+func (m *XenForoClient) GetThreads(ctx context.Context, nodeID int) ([]xenforo.Thread, error) {
 	if m.GetThreadsFunc != nil {
-		return m.GetThreadsFunc(nodeID)
+		return m.GetThreadsFunc(ctx, nodeID)
 	}
 	return nil, errors.New("GetThreadsFunc not set - test must explicitly set mock behavior")
 }
 
-func (m *XenForoClient) GetPosts(thread xenforo.Thread) ([]xenforo.Post, error) {
+func (m *XenForoClient) GetPosts(ctx context.Context, thread xenforo.Thread) ([]xenforo.Post, error) {
 	if m.GetPostsFunc != nil {
-		return m.GetPostsFunc(thread)
+		return m.GetPostsFunc(ctx, thread)
 	}
 	return nil, errors.New("GetPostsFunc not set - test must explicitly set mock behavior")
 }
