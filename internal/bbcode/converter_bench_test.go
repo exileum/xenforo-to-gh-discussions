@@ -1,6 +1,7 @@
 package bbcode
 
 import (
+	"context"
 	"strings"
 	"testing"
 )
@@ -48,7 +49,7 @@ func BenchmarkConverter_ToMarkdown(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = converter.ToMarkdown(sampleBBCode)
+		_, _ = converter.ToMarkdown(context.Background(), sampleBBCode)
 	}
 }
 
@@ -58,7 +59,7 @@ func BenchmarkConverter_ToMarkdown_Small(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = converter.ToMarkdown(smallContent)
+		_, _ = converter.ToMarkdown(context.Background(), smallContent)
 	}
 }
 
@@ -69,7 +70,7 @@ func BenchmarkConverter_ToMarkdown_Large(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = converter.ToMarkdown(largeContent)
+		_, _ = converter.ToMarkdown(context.Background(), largeContent)
 	}
 }
 
@@ -85,7 +86,7 @@ Response to inner quote
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = converter.ToMarkdown(quotesContent)
+		_, _ = converter.ToMarkdown(context.Background(), quotesContent)
 	}
 }
 
@@ -97,7 +98,7 @@ func BenchmarkConverter_ToMarkdown_FormattingOnly(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = converter.ToMarkdown(formattingContent)
+		_, _ = converter.ToMarkdown(context.Background(), formattingContent)
 	}
 }
 
@@ -112,7 +113,7 @@ func BenchmarkConverter_ToMarkdown_LinksOnly(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = converter.ToMarkdown(linksContent)
+		_, _ = converter.ToMarkdown(context.Background(), linksContent)
 	}
 }
 
@@ -143,7 +144,7 @@ console.log(doubled);
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = converter.ToMarkdown(codeContent)
+		_, _ = converter.ToMarkdown(context.Background(), codeContent)
 	}
 }
 
@@ -169,7 +170,7 @@ Final response with [media=youtube]dQw4w9WgXcQ[/media]
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = converter.ToMarkdown(complexContent)
+		_, _ = converter.ToMarkdown(context.Background(), complexContent)
 	}
 }
 
@@ -192,7 +193,7 @@ func BenchmarkMessageProcessor_ProcessContent(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = processor.ProcessContent(content)
+		_, _ = processor.ProcessContent(context.Background(), content)
 	}
 }
 

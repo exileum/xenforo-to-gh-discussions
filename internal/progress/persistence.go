@@ -1,7 +1,9 @@
 package progress
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 )
@@ -16,7 +18,14 @@ func NewPersistence(filePath string) *Persistence {
 	}
 }
 
-func (p *Persistence) Load() (*MigrationProgress, error) {
+func (p *Persistence) Load(ctx context.Context) (*MigrationProgress, error) {
+	// Check context cancellation
+	select {
+	case <-ctx.Done():
+		return nil, fmt.Errorf("progress load cancelled: %w", ctx.Err())
+	default:
+	}
+
 	progress := &MigrationProgress{
 		CompletedThreads: []int{},
 		FailedThreads:    []int{},
@@ -40,7 +49,14 @@ func (p *Persistence) Load() (*MigrationProgress, error) {
 	return progress, nil
 }
 
-func (p *Persistence) Save(progress *MigrationProgress) error {
+func (p *Persistence) Save(ctx context.Context, progress *MigrationProgress) error {
+	// Check context cancellation
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("progress save cancelled: %w", ctx.Err())
+	default:
+	}
+
 	data, err := json.MarshalIndent(progress, "", "  ")
 	if err != nil {
 		log.Printf("Failed to marshal progress data: %v", err)

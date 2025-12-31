@@ -1,6 +1,7 @@
 package progress
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 
@@ -13,7 +14,7 @@ func newTestTracker(t *testing.T) (*Tracker, string) {
 	tempDir := t.TempDir()
 	progressFile := filepath.Join(tempDir, "test_progress.json")
 
-	tracker, err := NewTracker(progressFile, false)
+	tracker, err := NewTracker(context.Background(), progressFile, false)
 	if err != nil {
 		t.Fatalf("Failed to create tracker: %v", err)
 	}
@@ -31,7 +32,7 @@ func TestProgressTracker(t *testing.T) {
 	}
 
 	// Test marking completed
-	err := tracker.MarkCompleted(123)
+	err := tracker.MarkCompleted(context.Background(), 123)
 	if err != nil {
 		t.Errorf("Failed to mark thread as completed: %v", err)
 	}
@@ -42,7 +43,7 @@ func TestProgressTracker(t *testing.T) {
 	}
 
 	// Test marking failed
-	err = tracker.MarkFailed(456)
+	err = tracker.MarkFailed(context.Background(), 456)
 	if err != nil {
 		t.Errorf("Failed to mark thread as failed: %v", err)
 	}
@@ -53,7 +54,7 @@ func TestProgressTracker(t *testing.T) {
 	}
 
 	// Test persistence by creating a new tracker
-	tracker2, err := NewTracker(progressFile, false)
+	tracker2, err := NewTracker(context.Background(), progressFile, false)
 	if err != nil {
 		t.Fatalf("Failed to create second tracker: %v", err)
 	}
@@ -68,10 +69,10 @@ func TestFilterCompletedThreads(t *testing.T) {
 	tracker, _ := newTestTracker(t)
 
 	// Mark some threads as completed
-	if err := tracker.MarkCompleted(1); err != nil {
+	if err := tracker.MarkCompleted(context.Background(), 1); err != nil {
 		t.Fatalf("Failed to mark thread 1 as completed: %v", err)
 	}
-	if err := tracker.MarkCompleted(3); err != nil {
+	if err := tracker.MarkCompleted(context.Background(), 3); err != nil {
 		t.Fatalf("Failed to mark thread 3 as completed: %v", err)
 	}
 
@@ -101,13 +102,13 @@ func TestMarkCompletedDuplicatePrevention(t *testing.T) {
 	tracker, _ := newTestTracker(t)
 
 	// Mark thread 1 as completed multiple times
-	if err := tracker.MarkCompleted(1); err != nil {
+	if err := tracker.MarkCompleted(context.Background(), 1); err != nil {
 		t.Fatalf("Failed to mark thread 1 as completed: %v", err)
 	}
-	if err := tracker.MarkCompleted(1); err != nil {
+	if err := tracker.MarkCompleted(context.Background(), 1); err != nil {
 		t.Fatalf("Failed to mark thread 1 as completed (duplicate): %v", err)
 	}
-	if err := tracker.MarkCompleted(1); err != nil {
+	if err := tracker.MarkCompleted(context.Background(), 1); err != nil {
 		t.Fatalf("Failed to mark thread 1 as completed (duplicate 2): %v", err)
 	}
 
@@ -128,13 +129,13 @@ func TestMarkFailedDuplicatePrevention(t *testing.T) {
 	tracker, _ := newTestTracker(t)
 
 	// Mark thread 2 as failed multiple times
-	if err := tracker.MarkFailed(2); err != nil {
+	if err := tracker.MarkFailed(context.Background(), 2); err != nil {
 		t.Fatalf("Failed to mark thread 2 as failed: %v", err)
 	}
-	if err := tracker.MarkFailed(2); err != nil {
+	if err := tracker.MarkFailed(context.Background(), 2); err != nil {
 		t.Fatalf("Failed to mark thread 2 as failed (duplicate): %v", err)
 	}
-	if err := tracker.MarkFailed(2); err != nil {
+	if err := tracker.MarkFailed(context.Background(), 2); err != nil {
 		t.Fatalf("Failed to mark thread 2 as failed (duplicate 2): %v", err)
 	}
 

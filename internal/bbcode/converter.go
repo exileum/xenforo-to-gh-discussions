@@ -4,6 +4,8 @@
 package bbcode
 
 import (
+	"context"
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -24,15 +26,23 @@ func NewConverter() *Converter {
 // ToMarkdown converts BB-code formatted text to GitHub-flavored Markdown.
 // Handles quotes, formatting, links, images, spoilers, and media embeds.
 // Returns an empty string for empty or whitespace-only input.
+// Operations can be cancelled via the provided context.
 //
 // Example:
 //
 //	converter := NewConverter()
-//	markdown := converter.ToMarkdown("[b]Bold text[/b]")
-//	// Result: "**Bold text**"
-func (c *Converter) ToMarkdown(bbcode string) string {
+//	markdown, err := converter.ToMarkdown(ctx, "[b]Bold text[/b]")
+//	// Result: "**Bold text**", nil
+func (c *Converter) ToMarkdown(ctx context.Context, bbcode string) (string, error) {
 	if strings.TrimSpace(bbcode) == "" {
-		return ""
+		return "", nil
+	}
+
+	// Check context cancellation
+	select {
+	case <-ctx.Done():
+		return "", fmt.Errorf("BBCode conversion cancelled: %w", ctx.Err())
+	default:
 	}
 
 	result := bbcode
@@ -40,8 +50,22 @@ func (c *Converter) ToMarkdown(bbcode string) string {
 	// First, handle multi-line code blocks
 	result = c.processCodeBlocks(result)
 
+	// Check context after heavy processing
+	select {
+	case <-ctx.Done():
+		return "", fmt.Errorf("BBCode conversion cancelled after code blocks: %w", ctx.Err())
+	default:
+	}
+
 	// Handle quotes with attribution
 	result = c.processQuotes(result)
+
+	// Check context after complex quote processing
+	select {
+	case <-ctx.Done():
+		return "", fmt.Errorf("BBCode conversion cancelled after quote processing: %w", ctx.Err())
+	default:
+	}
 
 	// URLs with quotes first
 	result = regexp.MustCompile(`\[url="([^"]+)"\](.*?)\[/url\]`).ReplaceAllString(result, "[$2]($1)")
@@ -62,7 +86,7 @@ func (c *Converter) ToMarkdown(bbcode string) string {
 	// Final cleanup
 	result = c.finalCleanup(result)
 
-	return result
+	return result, nil
 }
 
 func (c *Converter) processCodeBlocks(input string) string {
