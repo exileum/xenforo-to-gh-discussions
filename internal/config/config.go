@@ -44,12 +44,14 @@ type GitHubConfig struct {
 // MigrationConfig controls migration behavior and retry logic.
 // Provides options for dry-run testing and verbose output.
 type MigrationConfig struct {
-	MaxRetries   int  // Maximum retries for failed operations
-	DryRun       bool // Enable dry-run mode (no actual changes)
-	Verbose      bool // Enable verbose logging
-	ResumeFrom   int
-	ProgressFile string
-	UserMapping  map[int]int
+	MaxRetries       int  // Maximum retries for failed operations
+	DryRun           bool // Enable dry-run mode (no actual changes)
+	Verbose          bool // Enable verbose logging
+	ResumeFrom       int
+	ProgressFile     string
+	UserMapping      map[int]int
+	OperationTimeout time.Duration // Timeout for individual operations (0 = no timeout)
+	RequestTimeout   time.Duration // Timeout for HTTP requests
 }
 
 // FilesystemConfig contains settings for file attachment handling.
@@ -80,9 +82,11 @@ func New() *Config {
 			RetryBackoffMultiple: getEnvIntOrDefault("GITHUB_RETRY_BACKOFF_MULTIPLE", 2),
 		},
 		Migration: MigrationConfig{
-			MaxRetries:   getEnvIntOrDefault("MAX_RETRIES", 3),
-			ProgressFile: getEnvOrDefault("PROGRESS_FILE", "migration_progress.json"),
-			UserMapping:  make(map[int]int),
+			MaxRetries:       getEnvIntOrDefault("MAX_RETRIES", 3),
+			ProgressFile:     getEnvOrDefault("PROGRESS_FILE", "migration_progress.json"),
+			UserMapping:      make(map[int]int),
+			OperationTimeout: getEnvDurationOrDefault("OPERATION_TIMEOUT", 5*time.Minute),
+			RequestTimeout:   getEnvDurationOrDefault("REQUEST_TIMEOUT", 30*time.Second),
 		},
 		Filesystem: FilesystemConfig{
 			AttachmentsDir:           getEnvOrDefault("ATTACHMENTS_DIR", "./attachments"),
