@@ -1,6 +1,6 @@
 module github.com/exileum/xenforo-to-gh-discussions
 
-go 1.24.0
+go 1.25.0
 
 require (
 	github.com/dlclark/regexp2 v1.12.0
@@ -11,5 +11,5 @@ require (
 
 require (
 	github.com/shurcooL/graphql v0.0.0-20230722043721-ed46e5a46466 // indirect
-	golang.org/x/net v0.43.0 // indirect
+	golang.org/x/net v0.55.0 // indirect
 )
