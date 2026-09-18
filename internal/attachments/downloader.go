@@ -4,6 +4,7 @@
 package attachments
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/exileum/xenforo-to-gh-discussions/internal/util"
 	"github.com/exileum/xenforo-to-gh-discussions/internal/xenforo"
 )
 
@@ -37,14 +39,21 @@ func NewDownloader(attachmentsDir string, dryRun bool, client XenForoDownloader,
 	}
 }
 
-func (d *Downloader) DownloadAttachments(attachments []xenforo.Attachment) error {
+func (d *Downloader) DownloadAttachments(ctx context.Context, attachments []xenforo.Attachment) error {
 	for _, attachment := range attachments {
+		// Check context cancellation before each attachment
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("attachment download cancelled: %w", ctx.Err())
+		default:
+		}
+
 		if d.dryRun {
 			log.Printf("    [DRY-RUN] Would download: %s", attachment.Filename)
 			continue
 		}
 
-		if err := d.downloadSingle(attachment); err != nil {
+		if err := d.downloadSingle(ctx, attachment); err != nil {
 			log.Printf("    ✗ Failed to download %s: %v", attachment.Filename, err)
 			continue
 		}
@@ -52,7 +61,14 @@ func (d *Downloader) DownloadAttachments(attachments []xenforo.Attachment) error
 	return nil
 }
 
-func (d *Downloader) downloadSingle(attachment xenforo.Attachment) error {
+func (d *Downloader) downloadSingle(ctx context.Context, attachment xenforo.Attachment) error {
+	// Check context cancellation
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("download cancelled for attachment %d: %w", attachment.AttachmentID, ctx.Err())
+	default:
+	}
+
 	// Determine file extension and create directory
 	ext := d.getFileExtension(attachment.Filename)
 	dir := filepath.Join(d.attachmentsDir, ext)
@@ -62,12 +78,15 @@ func (d *Downloader) downloadSingle(attachment xenforo.Attachment) error {
 	}
 
 	// Generate safe filename
-	sanitizedFilename := d.sanitizer.SanitizeFilename(attachment.Filename)
+	sanitizedFilename, err := d.sanitizer.SanitizeFilename(ctx, attachment.Filename)
+	if err != nil {
+		return fmt.Errorf("failed to sanitize filename: %w", err)
+	}
 	filename := fmt.Sprintf("attachment_%d_%s", attachment.AttachmentID, sanitizedFilename)
 	filePath := filepath.Join(dir, filename)
 
 	// Validate path security
-	if err := d.sanitizer.ValidatePath(filePath, dir); err != nil {
+	if err := d.sanitizer.ValidatePath(ctx, filePath, dir); err != nil {
 		return fmt.Errorf("security violation: file path escapes directory")
 	}
 
@@ -84,9 +103,11 @@ func (d *Downloader) downloadSingle(attachment xenforo.Attachment) error {
 
 	log.Printf("    ✓ Downloaded: %s", filename)
 
-	// Configurable rate limiting
+	// Configurable rate limiting with context awareness
 	if d.rateLimitDelay > 0 {
-		time.Sleep(d.rateLimitDelay)
+		if err := util.ContextSleep(ctx, d.rateLimitDelay); err != nil {
+			return fmt.Errorf("rate limit sleep interrupted: %w", err)
+		}
 	}
 
 	return nil
@@ -100,9 +121,19 @@ func (d *Downloader) getFileExtension(filename string) string {
 	return strings.TrimPrefix(ext, ".")
 }
 
-func (d *Downloader) ReplaceAttachmentLinks(message string, attachments []xenforo.Attachment) string {
+func (d *Downloader) ReplaceAttachmentLinks(ctx context.Context, message string, attachments []xenforo.Attachment) (string, error) {
 	for _, attachment := range attachments {
-		sanitizedFilename := d.sanitizer.SanitizeFilename(attachment.Filename)
+		// Check context cancellation before each attachment
+		select {
+		case <-ctx.Done():
+			return "", fmt.Errorf("attachment link replacement cancelled: %w", ctx.Err())
+		default:
+		}
+
+		sanitizedFilename, err := d.sanitizer.SanitizeFilename(ctx, attachment.Filename)
+		if err != nil {
+			return "", fmt.Errorf("failed to sanitize filename: %w", err)
+		}
 		ext := d.getFileExtension(sanitizedFilename)
 
 		filename := fmt.Sprintf("attachment_%d_%s", attachment.AttachmentID, sanitizedFilename)
@@ -132,7 +163,7 @@ func (d *Downloader) ReplaceAttachmentLinks(message string, attachments []xenfor
 		log.Printf("    ⚠ Unhandled attachment code: %s", code)
 	}
 
-	return message
+	return message, nil
 }
 
 func (d *Downloader) isImageFile(ext string) bool {

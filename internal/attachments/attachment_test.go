@@ -1,6 +1,7 @@
 package attachments
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
@@ -45,7 +46,10 @@ func TestFileSanitizer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := sanitizer.SanitizeFilename(tt.input)
+			result, err := sanitizer.SanitizeFilename(context.Background(), tt.input)
+			if err != nil {
+				t.Fatalf("SanitizeFilename failed: %v", err)
+			}
 			if result != tt.expected {
 				t.Errorf("Expected %q, got %q", tt.expected, result)
 			}
@@ -75,7 +79,7 @@ func TestDownloader(t *testing.T) {
 	}
 
 	// Test in dry-run mode (should not download)
-	err := downloader.DownloadAttachments(attachments)
+	err := downloader.DownloadAttachments(context.Background(), attachments)
 	if err != nil {
 		t.Errorf("Dry run should not return error: %v", err)
 	}
@@ -100,7 +104,10 @@ func TestReplaceAttachmentLinks(t *testing.T) {
 		},
 	}
 
-	result := downloader.ReplaceAttachmentLinks(message, attachments)
+	result, err := downloader.ReplaceAttachmentLinks(context.Background(), message, attachments)
+	if err != nil {
+		t.Fatalf("ReplaceAttachmentLinks failed: %v", err)
+	}
 
 	// Should replace image with Markdown image syntax
 	if !strings.Contains(result, "![image.png](./png/attachment_1_image.png)") {
@@ -232,7 +239,7 @@ func TestValidatePath(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			err := sanitizer.ValidatePath(tt.filePath, tt.baseDir)
+			err := sanitizer.ValidatePath(context.Background(), tt.filePath, tt.baseDir)
 
 			if tt.shouldErr {
 				if err == nil {
@@ -288,7 +295,7 @@ func TestDownloaderRateLimiting(t *testing.T) {
 
 			// Measure execution time
 			start := time.Now()
-			err := downloader.DownloadAttachments(attachments)
+			err := downloader.DownloadAttachments(context.Background(), attachments)
 			elapsed := time.Since(start)
 
 			if err != nil {

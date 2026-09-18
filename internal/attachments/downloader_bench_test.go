@@ -1,6 +1,7 @@
 package attachments
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 
@@ -13,7 +14,7 @@ func BenchmarkSanitizer_SanitizeFilename(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = sanitizer.SanitizeFilename(filename)
+		_, _ = sanitizer.SanitizeFilename(context.Background(), filename)
 	}
 }
 
@@ -24,7 +25,7 @@ func BenchmarkSanitizer_SanitizeFilename_Complex(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = sanitizer.SanitizeFilename(filename)
+		_, _ = sanitizer.SanitizeFilename(context.Background(), filename)
 	}
 }
 
@@ -35,7 +36,7 @@ func BenchmarkSanitizer_SanitizeFilename_PathTraversal(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = sanitizer.SanitizeFilename(filename)
+		_, _ = sanitizer.SanitizeFilename(context.Background(), filename)
 	}
 }
 
@@ -50,7 +51,7 @@ func BenchmarkSanitizer_SanitizeFilename_LongFilename(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = sanitizer.SanitizeFilename(longName)
+		_, _ = sanitizer.SanitizeFilename(context.Background(), longName)
 	}
 }
 
@@ -61,7 +62,7 @@ func BenchmarkSanitizer_ValidatePath_Safe(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = sanitizer.ValidatePath(safePath, baseDir)
+		_ = sanitizer.ValidatePath(context.Background(), safePath, baseDir)
 	}
 }
 
@@ -72,7 +73,7 @@ func BenchmarkSanitizer_ValidatePath_Dangerous(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = sanitizer.ValidatePath(dangerousPath, baseDir)
+		_ = sanitizer.ValidatePath(context.Background(), dangerousPath, baseDir)
 	}
 }
 
@@ -84,7 +85,7 @@ func BenchmarkSanitizer_ValidatePath_Complex(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = sanitizer.ValidatePath(complexPath, baseDir)
+		_ = sanitizer.ValidatePath(context.Background(), complexPath, baseDir)
 	}
 }
 
@@ -102,7 +103,7 @@ func BenchmarkAttachmentWorkflow(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		// Simulate the filename sanitization workflow
 		for _, attachment := range attachments {
-			_ = sanitizer.SanitizeFilename(attachment.Filename)
+			_, _ = sanitizer.SanitizeFilename(context.Background(), attachment.Filename)
 		}
 	}
 }

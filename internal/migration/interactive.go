@@ -121,7 +121,7 @@ func (r *InteractiveRunner) handleMigrationError(err error, cfg *config.Config) 
 		fmt.Println("Skipping current thread...")
 
 		// Get current progress to find last processed thread
-		tracker, err := progress.NewTracker(cfg.Migration.ProgressFile, false)
+		tracker, err := progress.NewTracker(context.Background(), cfg.Migration.ProgressFile, false)
 		if err != nil {
 			fmt.Printf("Warning: Could not load progress file: %v\n", err)
 			return
@@ -143,7 +143,7 @@ func (r *InteractiveRunner) handleMigrationError(err error, cfg *config.Config) 
 
 // getLastProcessedID reads the progress file to get the last processed thread ID
 func (r *InteractiveRunner) getLastProcessedID(cfg *config.Config) int {
-	tracker, err := progress.NewTracker(cfg.Migration.ProgressFile, true) // dryRun=true just for reading
+	tracker, err := progress.NewTracker(context.Background(), cfg.Migration.ProgressFile, true) // dryRun=true just for reading
 	if err != nil {
 		return 0
 	}
@@ -209,7 +209,7 @@ func (r *InteractiveRunner) runDryRun(cfg *config.Config) error {
 	client := xenforo.NewClient(cfg.XenForo.APIURL, cfg.XenForo.APIKey, cfg.XenForo.APIUser, cfg.Migration.MaxRetries)
 
 	// Get statistics from XenForo API
-	threadCount, postCount, attachmentCount, userCount, err := client.GetDryRunStats(cfg.GitHub.XenForoNodeID)
+	threadCount, postCount, attachmentCount, userCount, err := client.GetDryRunStats(context.Background(), cfg.GitHub.XenForoNodeID)
 	if err != nil {
 		return fmt.Errorf("failed to get dry run statistics: %w", err)
 	}

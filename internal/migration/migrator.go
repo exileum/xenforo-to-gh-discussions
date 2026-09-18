@@ -46,6 +46,11 @@ func (m *Migrator) Run(ctx context.Context) error {
 		m.config.Migration.MaxRetries,
 	)
 
+	// Set request timeout if configured
+	if m.config.Migration.RequestTimeout > 0 {
+		xenforoClient.SetTimeout(m.config.Migration.RequestTimeout)
+	}
+
 	var githubClient *github.Client
 	if !m.config.Migration.DryRun {
 		var err error
@@ -61,7 +66,7 @@ func (m *Migrator) Run(ctx context.Context) error {
 	}
 
 	// Initialize progress tracker
-	tracker, err := progress.NewTracker(m.config.Migration.ProgressFile, m.config.Migration.DryRun)
+	tracker, err := progress.NewTracker(ctx, m.config.Migration.ProgressFile, m.config.Migration.DryRun)
 	if err != nil {
 		return fmt.Errorf("failed to initialize progress tracker: %w", err)
 	}

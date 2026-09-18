@@ -4,6 +4,7 @@
 package progress
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -24,9 +25,9 @@ type Tracker struct {
 	dryRun   bool
 }
 
-func NewTracker(progressFile string, dryRun bool) (*Tracker, error) {
+func NewTracker(ctx context.Context, progressFile string, dryRun bool) (*Tracker, error) {
 	persist := NewPersistence(progressFile)
-	progress, err := persist.Load()
+	progress, err := persist.Load(ctx)
 	if err != nil {
 		// Return default progress on load error
 		progress = &MigrationProgress{
@@ -50,7 +51,7 @@ func (t *Tracker) SetResumeFrom(threadID int) {
 	t.progress.LastThreadID = threadID
 }
 
-func (t *Tracker) MarkCompleted(threadID int) error {
+func (t *Tracker) MarkCompleted(ctx context.Context, threadID int) error {
 	// Check if threadID already exists in CompletedThreads
 	for _, id := range t.progress.CompletedThreads {
 		if id == threadID {
@@ -60,10 +61,10 @@ func (t *Tracker) MarkCompleted(threadID int) error {
 
 	t.progress.CompletedThreads = append(t.progress.CompletedThreads, threadID)
 	t.progress.LastThreadID = threadID
-	return t.save()
+	return t.save(ctx)
 }
 
-func (t *Tracker) MarkFailed(threadID int) error {
+func (t *Tracker) MarkFailed(ctx context.Context, threadID int) error {
 	// Check if threadID already exists in FailedThreads
 	for _, id := range t.progress.FailedThreads {
 		if id == threadID {
@@ -72,7 +73,7 @@ func (t *Tracker) MarkFailed(threadID int) error {
 	}
 
 	t.progress.FailedThreads = append(t.progress.FailedThreads, threadID)
-	return t.save()
+	return t.save(ctx)
 }
 
 func (t *Tracker) FilterCompletedThreads(threads []xenforo.Thread) []xenforo.Thread {
@@ -110,7 +111,7 @@ func (t *Tracker) PrintSummary() {
 	}
 }
 
-func (t *Tracker) save() error {
+func (t *Tracker) save(ctx context.Context) error {
 	t.progress.LastUpdated = time.Now().Unix()
-	return t.persist.Save(t.progress)
+	return t.persist.Save(ctx, t.progress)
 }
