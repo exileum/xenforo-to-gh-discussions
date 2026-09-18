@@ -12,11 +12,9 @@ on:
 
 jobs:
   claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
+    # Dependabot runs cannot access Actions secrets, and Claude rejects bot actors.
+    # Keep dependency updates covered by CI without starting the optional AI review.
+    if: github.event.pull_request.user.login != 'dependabot[bot]' && github.actor != 'dependabot[bot]'
     
     runs-on: ubuntu-latest
     permissions:
@@ -75,4 +73,3 @@ jobs:
           # if: |
           #   !contains(github.event.pull_request.title, '[skip-review]') &&
           #   !contains(github.event.pull_request.title, '[WIP]')
-
